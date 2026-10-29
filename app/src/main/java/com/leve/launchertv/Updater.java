@@ -55,7 +55,7 @@ final class Updater {
                 act.runOnUiThread(() -> {
                     busy = false;
                     if (latest <= 0) {
-                        fail(null);
+                        fail(null, APK);
                     } else if (latest <= mine) {
                         Toast.makeText(act, act.getString(R.string.upd_latest, "1.0." + mine),
                                 Toast.LENGTH_LONG).show();
@@ -66,7 +66,7 @@ final class Updater {
             } catch (Exception e) {
                 act.runOnUiThread(() -> {
                     busy = false;
-                    fail(e);
+                    fail(e, APK);
                 });
             }
         }).start();
@@ -91,22 +91,90 @@ final class Updater {
         new AlertDialog.Builder(act)
                 .setTitle(R.string.upd_title)
                 .setMessage(act.getString(R.string.upd_found, "1.0." + latest))
-                .setPositiveButton(R.string.upd_download, (d, w) -> download())
+                .setPositiveButton(R.string.upd_download,
+                        (d, w) -> download(APK, ApkProvider.FILE_NAME, APK))
                 .setNegativeButton(R.string.upd_later, null)
                 .show();
     }
 
-    private void download() {
+    // ================= YouTube Leve (SmartTube) =================
+
+    private static final String ST_API = "https://api.github.com/repos/yuliskov/SmartTube/releases/latest";
+    static final String ST_PAGE = "https://github.com/yuliskov/SmartTube/releases/latest";
+
+    /** Baixa a versão estável mais nova do SmartTube, certa para o processador do box. */
+    void installSmartTube() {
+        if (busy) return;
+        if (!canInstall()) return;
+        busy = true;
+        Toast.makeText(act, R.string.st_searching, Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                String json = readText(ST_API);
+                final String url = pickSmartTubeApk(json);
+                act.runOnUiThread(() -> {
+                    busy = false;
+                    if (url == null) fail(null, ST_PAGE);
+                    else download(url, "SmartTube.apk", ST_PAGE);
+                });
+            } catch (Exception e) {
+                act.runOnUiThread(() -> {
+                    busy = false;
+                    fail(e, ST_PAGE);
+                });
+            }
+        }).start();
+    }
+
+    /** Escolhe arm64, armeabi-v7a ou x86 conforme o Android do box; se não achar, o universal. */
+    static String pickSmartTubeApk(String json) {
+        String abi = Build.SUPPORTED_ABIS.length > 0 ? Build.SUPPORTED_ABIS[0] : "armeabi-v7a";
+        String want = abi.startsWith("arm64") ? "arm64-v8a"
+                : abi.startsWith("x86") ? "x86" : "armeabi-v7a";
+        Matcher m = Pattern.compile("\"browser_download_url\"\\s*:\\s*\"([^\"]+\\.apk)\"").matcher(json);
+        String exact = null, universal = null;
+        while (m.find()) {
+            String u = m.group(1);
+            String low = u.toLowerCase();
+            if (low.contains("beta")) continue;
+            if (low.endsWith("_" + want + ".apk")) exact = u;
+            else if (low.contains("universal")) universal = u;
+        }
+        return exact != null ? exact : universal;
+    }
+
+    private static String readText(String url) throws Exception {
+        HttpURLConnection c = open(url);
+        try (InputStream in = c.getInputStream()) {
+            ByteArrayOutputStream buf = new ByteArrayOutputStream();
+            byte[] b = new byte[8192];
+            int n;
+            while ((n = in.read(b)) > 0) buf.write(b, 0, n);
+            return buf.toString("UTF-8");
+        } finally {
+            c.disconnect();
+        }
+    }
+
+    // ================= Download e instalação =================
+
+    /** Android 8+: o Leve precisa de permissão para instalar apps. */
+    private boolean canInstall() {
         if (Build.VERSION.SDK_INT >= 26 && !act.getPackageManager().canRequestPackageInstalls()) {
             Toast.makeText(act, R.string.upd_allow, Toast.LENGTH_LONG).show();
             try {
                 act.startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                         Uri.parse("package:" + act.getPackageName())));
             } catch (Exception ignored) {
-                fail(null);
+                fail(null, APK);
             }
-            return;
+            return false;
         }
+        return true;
+    }
+
+    private void download(final String url, final String fileName, final String manualLink) {
+        if (!canInstall()) return;
 
         final AlertDialog progress = new AlertDialog.Builder(act)
                 .setTitle(R.string.upd_title)
@@ -117,8 +185,8 @@ final class Updater {
 
         new Thread(() -> {
             try {
-                final File apk = target();
-                HttpURLConnection c = open(APK);
+                final File apk = target(fileName);
+                HttpURLConnection c = open(url);
                 int total = c.getContentLength();
                 try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(apk)) {
                     byte[] b = new byte[16384];
@@ -147,41 +215,42 @@ final class Updater {
                 act.runOnUiThread(() -> {
                     busy = false;
                     progress.dismiss();
-                    fail(e);
+                    fail(e, manualLink);
                 });
             }
         }).start();
     }
 
     /** Android 7+: cache interno servido pelo ApkProvider. Antes disso: cache externo (file://). */
-    private File target() {
+    private File target(String fileName) {
         File dir = act.getCacheDir();
         if (Build.VERSION.SDK_INT < 24 && act.getExternalCacheDir() != null) {
             dir = act.getExternalCacheDir();
         }
-        return new File(dir, ApkProvider.FILE_NAME);
+        return new File(dir, fileName);
     }
 
     private void install(File apk) {
-        Uri uri = Build.VERSION.SDK_INT >= 24 ? ApkProvider.uri(act) : Uri.fromFile(apk);
+        Uri uri = Build.VERSION.SDK_INT >= 24 ? ApkProvider.uri(act, apk.getName()) : Uri.fromFile(apk);
         Intent i = new Intent(Intent.ACTION_VIEW)
                 .setDataAndType(uri, "application/vnd.android.package-archive")
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
         try {
             act.startActivity(i);
         } catch (Exception e) {
-            fail(e);
+            fail(e, ApkProvider.FILE_NAME.equals(apk.getName()) ? APK : ST_PAGE);
         }
     }
 
     /** Se algo der errado, mostra o link para atualizar manualmente. */
-    private void fail(Exception e) {
+    private void fail(Exception e, final String link) {
         new AlertDialog.Builder(act)
                 .setTitle(R.string.upd_fail_title)
-                .setMessage(act.getString(R.string.upd_fail, APK))
+                .setMessage(act.getString(R.string.upd_fail, link))
                 .setPositiveButton(R.string.upd_open_browser, (d, w) -> {
                     try {
-                        act.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(PAGE))
+                        act.startActivity(new Intent(Intent.ACTION_VIEW,
+                                Uri.parse(link.equals(APK) ? PAGE : link))
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                     } catch (Exception ignored) {
                         Toast.makeText(act, R.string.upd_no_browser, Toast.LENGTH_LONG).show();

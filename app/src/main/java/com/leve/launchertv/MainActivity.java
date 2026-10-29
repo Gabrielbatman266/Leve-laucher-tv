@@ -44,13 +44,14 @@ public class MainActivity extends Activity {
     private static final String KEY_HIDDEN = "hidden";
     private static final String KEY_STARS = "stars";
     private static final String KEY_FIRST = "first_done";
+    private static final String KEY_ST_DONE = "st_pinned";
 
     // Tipos de linha
-    static final int T_SECTION = 0, T_BIG = 1, T_APP = 2, T_ACTION = 3;
+    static final int T_SECTION = 0, T_BIG = 1, T_APP = 2, T_ACTION = 3, T_BIG_ACTION = 4;
 
     // Ações do menu "Opções"
     private static final String A_SETTINGS = "settings", A_HOME = "home", A_STARS = "stars",
-            A_ALPHA = "alpha", A_HIDDEN = "hidden", A_UPDATE = "update";
+            A_ALPHA = "alpha", A_HIDDEN = "hidden", A_UPDATE = "update", A_ST = "smarttube";
 
     private static final int REQ_HOME = 7;
 
@@ -142,6 +143,7 @@ public class MainActivity extends Activity {
             lastPackages = new HashSet<>(apps.keySet());
         }
         firstRun(apps);
+        String smartTube = findSmartTube(apps);
 
         List<String> pinned = readList(KEY_PINNED);
         final List<String> order = readList(KEY_ORDER);
@@ -155,9 +157,13 @@ public class MainActivity extends Activity {
             String label = apps.get(pkg);
             if (label != null) main.add(new Row(T_BIG, pkg, label, false));
         }
-        if (!main.isEmpty()) {
+        boolean offerSmartTube = smartTube == null;
+        if (!main.isEmpty() || offerSmartTube) {
             rows.add(new Row(T_SECTION, "", getString(R.string.sec_main), false));
             rows.addAll(main);
+            if (offerSmartTube) {
+                rows.add(new Row(T_BIG_ACTION, A_ST, getString(R.string.st_install), false));
+            }
         }
 
         // Outros apps: ordem personalizada primeiro, novos em ordem alfabética
@@ -228,6 +234,32 @@ public class MainActivity extends Activity {
         }
     }
 
+    /**
+     * YouTube Leve = SmartTube. Se estiver instalado, aparece com esse nome
+     * e entra nos principais uma vez (depois você tira se quiser).
+     */
+    private String findSmartTube(Map<String, String> apps) {
+        String found = null;
+        for (Map.Entry<String, String> e : apps.entrySet()) {
+            String pkg = e.getKey();
+            String l = e.getValue().toLowerCase(Locale.ROOT).replace(" ", "");
+            if (l.contains("smarttube") || pkg.startsWith("com.liskovsoft.smarttube")
+                    || pkg.equals("com.teamsmart.videomanager.tv")) {
+                found = pkg;
+                break;
+            }
+        }
+        if (found == null) return null;
+        apps.put(found, getString(R.string.st_name));
+        if (!prefs.getBoolean(KEY_ST_DONE, false)) {
+            List<String> pinned = readList(KEY_PINNED);
+            if (!pinned.contains(found)) pinned.add(found);
+            writeList(KEY_PINNED, pinned);
+            prefs.edit().putBoolean(KEY_ST_DONE, true).apply();
+        }
+        return found;
+    }
+
     /** Na primeira vez, o YouCine já entra nos principais. */
     private void firstRun(Map<String, String> apps) {
         if (prefs.getBoolean(KEY_FIRST, false)) return;
@@ -271,6 +303,9 @@ public class MainActivity extends Activity {
                 break;
             case A_UPDATE:
                 updater.check();
+                break;
+            case A_ST:
+                updater.installSmartTube();
                 break;
         }
     }
@@ -507,7 +542,7 @@ public class MainActivity extends Activity {
         @Override public int getCount() { return rows.size(); }
         @Override public Object getItem(int p) { return rows.get(p); }
         @Override public long getItemId(int p) { return p; }
-        @Override public int getViewTypeCount() { return 4; }
+        @Override public int getViewTypeCount() { return 5; }
         @Override public int getItemViewType(int p) { return rows.get(p).type; }
         @Override public boolean areAllItemsEnabled() { return false; }
         @Override public boolean isEnabled(int p) { return rows.get(p).type != T_SECTION; }
@@ -517,13 +552,13 @@ public class MainActivity extends Activity {
             Row r = rows.get(pos);
             if (v == null) {
                 int layout = r.type == T_SECTION ? R.layout.row_section
-                        : r.type == T_BIG ? R.layout.row_big : R.layout.row;
+                        : (r.type == T_BIG || r.type == T_BIG_ACTION) ? R.layout.row_big : R.layout.row;
                 v = getLayoutInflater().inflate(layout, parent, false);
             }
             TextView label = v.findViewById(R.id.label);
             ImageView icon = v.findViewById(R.id.icon);
 
-            if (r.type == T_BIG) {
+            if (r.type == T_BIG || r.type == T_BIG_ACTION) {
                 label.setText("★  " + r.label);
             } else {
                 label.setText(r.label);
@@ -532,6 +567,10 @@ public class MainActivity extends Activity {
                 if (r.isApp()) {
                     icon.setVisibility(View.VISIBLE);
                     icons.into(r.id, icon);
+                } else if (r.type == T_BIG_ACTION) {
+                    icon.setTag(null);
+                    icon.setVisibility(View.VISIBLE);
+                    icon.setImageResource(R.drawable.play);
                 } else {
                     icon.setTag(null);
                     icon.setImageDrawable(null);

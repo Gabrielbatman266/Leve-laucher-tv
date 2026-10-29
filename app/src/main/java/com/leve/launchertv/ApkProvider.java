@@ -12,17 +12,24 @@ import android.provider.OpenableColumns;
 import java.io.File;
 import java.io.FileNotFoundException;
 
-/** Entrega só o APK baixado para o instalador do Android (substitui o FileProvider). */
+/** Entrega para o instalador do Android só os APKs que o Leve baixou (substitui o FileProvider). */
 public class ApkProvider extends ContentProvider {
 
     static final String FILE_NAME = "LeveLauncherTV.apk";
 
-    static Uri uri(Context ctx) {
-        return Uri.parse("content://" + ctx.getPackageName() + ".apk/" + FILE_NAME);
+    static Uri uri(Context ctx, String fileName) {
+        return Uri.parse("content://" + ctx.getPackageName() + ".apk/" + fileName);
     }
 
-    private File file() {
-        return new File(getContext().getCacheDir(), FILE_NAME);
+    /** Só arquivos .apk direto no cache — nada de caminhos com "/" ou "..". */
+    private File file(Uri uri) throws FileNotFoundException {
+        String name = uri.getLastPathSegment();
+        if (name == null || !name.endsWith(".apk") || name.contains("/") || name.contains("..")) {
+            throw new FileNotFoundException();
+        }
+        File f = new File(getContext().getCacheDir(), name);
+        if (!f.exists()) throw new FileNotFoundException();
+        return f;
     }
 
     @Override
@@ -32,7 +39,7 @@ public class ApkProvider extends ContentProvider {
 
     @Override
     public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
-        return ParcelFileDescriptor.open(file(), ParcelFileDescriptor.MODE_READ_ONLY);
+        return ParcelFileDescriptor.open(file(uri), ParcelFileDescriptor.MODE_READ_ONLY);
     }
 
     @Override
@@ -43,7 +50,11 @@ public class ApkProvider extends ContentProvider {
     @Override
     public Cursor query(Uri uri, String[] projection, String selection, String[] args, String sort) {
         MatrixCursor c = new MatrixCursor(new String[]{OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE});
-        c.addRow(new Object[]{FILE_NAME, file().length()});
+        try {
+            File f = file(uri);
+            c.addRow(new Object[]{f.getName(), f.length()});
+        } catch (FileNotFoundException ignored) {
+        }
         return c;
     }
 

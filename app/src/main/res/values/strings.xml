@@ -27,6 +27,10 @@
     <string name="cant_open">Não foi possível abrir</string>
     <string name="home_pick">Escolha a tela inicial e toque em \"Sempre\"</string>
 
+    <string name="st_install">YouTube Leve  ·  instalar</string>
+    <string name="st_searching">Procurando o YouTube Leve…</string>
+    <string name="st_name">YouTube Leve</string>
+
     <string name="upd_title">Atualizar</string>
     <string name="upd_checking">Procurando atualização…</string>
     <string name="upd_latest">Você já tem a versão mais nova (v%s)</string>
