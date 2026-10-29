@@ -1,24 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:exitFadeDuration="0"
-    android:enterFadeDuration="0">
-    <item android:state_pressed="true">
-        <shape android:shape="rectangle">
-            <solid android:color="@color/accent_pressed" />
-            <corners android:radius="10dp" />
-        </shape>
-    </item>
-    <item android:state_selected="true">
-        <shape android:shape="rectangle">
-            <solid android:color="@color/accent" />
-            <corners android:radius="10dp" />
-        </shape>
-    </item>
-    <item android:state_focused="true">
-        <shape android:shape="rectangle">
-            <solid android:color="@color/accent" />
-            <corners android:radius="10dp" />
-        </shape>
-    </item>
+    android:enterFadeDuration="90"
+    android:exitFadeDuration="90">
+    <item android:state_pressed="true" android:drawable="@drawable/sel_on" />
+    <item android:state_selected="true" android:drawable="@drawable/sel_on" />
+    <item android:state_focused="true" android:drawable="@drawable/sel_on" />
     <item android:drawable="@android:color/transparent" />
 </selector>

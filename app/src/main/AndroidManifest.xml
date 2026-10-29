@@ -48,6 +48,20 @@
             </intent-filter>
         </activity>
 
+        <!-- Só é ligado por um instante para forçar o seletor de tela inicial -->
+        <activity-alias
+            android:name=".FakeHome"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
         <provider
             android:name=".ApkProvider"
             android:authorities="${applicationId}.apk"

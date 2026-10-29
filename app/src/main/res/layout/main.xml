@@ -1,40 +1,86 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg"
-    android:orientation="vertical"
-    android:paddingLeft="56dp"
-    android:paddingRight="56dp"
-    android:paddingTop="32dp"
-    android:paddingBottom="24dp">
+    android:background="@color/bg">
 
-    <TextClock
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:format12Hour="HH:mm"
-        android:format24Hour="HH:mm"
-        android:textColor="@color/dim"
-        android:textSize="22sp"
+    <com.leve.launchertv.StarsView
+        android:id="@+id/stars"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:focusable="false" />
 
-    <ListView
-        android:id="@+id/list"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="12dp"
-        android:choiceMode="none"
-        android:divider="@null"
-        android:dividerHeight="0dp"
-        android:drawSelectorOnTop="false"
-        android:listSelector="@drawable/selector"
-        android:scrollbars="none"
-        android:fadingEdgeLength="48dp"
-        android:requiresFadingEdge="vertical"
-        android:nextFocusUp="@id/list"
-        android:nextFocusDown="@id/list"
-        android:nextFocusLeft="@id/list"
-        android:nextFocusRight="@id/list" />
-</LinearLayout>
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingLeft="56dp"
+        android:paddingRight="56dp"
+        android:paddingTop="28dp"
+        android:paddingBottom="16dp">
+
+        <!-- Cabeçalho: título discreto à esquerda, relógio grande à direita -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="bottom"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/hint"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="sans-serif-light"
+                android:letterSpacing="0.35"
+                android:paddingBottom="10dp"
+                android:text="@string/title"
+                android:textColor="@color/dim"
+                android:textSize="16sp" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:orientation="vertical">
+
+                <TextClock
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-thin"
+                    android:format12Hour="HH:mm"
+                    android:format24Hour="HH:mm"
+                    android:includeFontPadding="false"
+                    android:shadowColor="@color/glow"
+                    android:shadowRadius="18"
+                    android:textColor="@color/text"
+                    android:textSize="76sp" />
+
+                <TextClock
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-light"
+                    android:format12Hour="EEEE, d MMM"
+                    android:format24Hour="EEEE, d MMM"
+                    android:textColor="@color/dim"
+                    android:textSize="18sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <ListView
+            android:id="@+id/list"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginTop="14dp"
+            android:cacheColorHint="@android:color/transparent"
+            android:choiceMode="none"
+            android:divider="@null"
+            android:dividerHeight="4dp"
+            android:drawSelectorOnTop="false"
+            android:fadingEdgeLength="56dp"
+            android:listSelector="@drawable/selector"
+            android:requiresFadingEdge="vertical"
+            android:scrollbars="none" />
+    </LinearLayout>
+</FrameLayout>

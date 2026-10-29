@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#000000</color>
-    <color name="text">#EDEDED</color>
-    <color name="dim">#7A7A7A</color>
-    <color name="accent">#26FFFFFF</color>
-    <color name="accent_pressed">#40FFFFFF</color>
+    <color name="bg">#01020A</color>
+    <color name="text">#EAF1FF</color>
+    <color name="dim">#7F93C9</color>
+    <color name="glow">#AA4D7DFF</color>
+    <color name="section">#5E78C2</color>
+    <!-- seleção: azul do menu do PS2 -->
+    <color name="sel_top">#5530C0FF</color>
+    <color name="sel_bottom">#33215BFF</color>
+    <color name="sel_line">#AA8FC8FF</color>
+    <!-- modo mover: dourado -->
+    <color name="move_top">#66FFC94D</color>
+    <color name="move_bottom">#33FF9A1F</color>
+    <color name="move_line">#FFFFD27A</color>
 </resources>
