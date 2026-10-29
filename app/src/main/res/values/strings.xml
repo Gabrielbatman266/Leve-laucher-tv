@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Leve Launcher TV</string>
+    <string name="settings">⚙  Configurações</string>
+    <string name="show_hidden">Mostrar ocultos (%d)</string>
+    <string name="hide_hidden">Esconder ocultos</string>
+    <string name="pin">Fixar no topo</string>
+    <string name="unpin">Desafixar</string>
+    <string name="hide">Ocultar</string>
+    <string name="unhide">Mostrar de novo</string>
+    <string name="app_info">Info do app</string>
+    <string name="cant_open">Não foi possível abrir</string>
+</resources>

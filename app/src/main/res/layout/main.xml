@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="vertical"
+    android:paddingLeft="56dp"
+    android:paddingRight="56dp"
+    android:paddingTop="32dp"
+    android:paddingBottom="24dp">
+
+    <TextClock
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:format12Hour="HH:mm"
+        android:format24Hour="HH:mm"
+        android:textColor="@color/dim"
+        android:textSize="22sp"
+        android:focusable="false" />
+
+    <ListView
+        android:id="@+id/list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="12dp"
+        android:choiceMode="none"
+        android:divider="@null"
+        android:dividerHeight="0dp"
+        android:drawSelectorOnTop="false"
+        android:listSelector="@drawable/selector"
+        android:scrollbars="none"
+        android:fadingEdgeLength="48dp"
+        android:requiresFadingEdge="vertical"
+        android:nextFocusUp="@id/list"
+        android:nextFocusDown="@id/list"
+        android:nextFocusLeft="@id/list"
+        android:nextFocusRight="@id/list" />
+</LinearLayout>
