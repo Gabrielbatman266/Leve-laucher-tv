@@ -22,7 +22,19 @@ jobs:
         with:
           gradle-version: '8.14.3'
 
+      - name: Preparar chave de assinatura
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > app/leve.jks
+          else
+            echo "::warning::Secret KEYSTORE_B64 não configurado — o botão Atualizar não vai conseguir instalar por cima."
+          fi
+
       - name: Compilar
+        env:
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
         run: gradle assembleRelease --no-daemon
 
       - name: Renomear APK

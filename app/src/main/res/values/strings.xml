@@ -10,4 +10,17 @@
     <string name="unhide">Mostrar de novo</string>
     <string name="app_info">Info do app</string>
     <string name="cant_open">Não foi possível abrir</string>
+    <string name="update_row">⬇  Atualizar  (v%s)</string>
+    <string name="upd_title">Atualizar</string>
+    <string name="upd_checking">Procurando atualização…</string>
+    <string name="upd_latest">Você já tem a versão mais nova (v%s)</string>
+    <string name="upd_found">Versão v%s disponível. Baixar agora?</string>
+    <string name="upd_download">Baixar</string>
+    <string name="upd_later">Depois</string>
+    <string name="upd_progress">Baixando… %d%%</string>
+    <string name="upd_allow">Permita instalar apps e depois aperte Atualizar de novo</string>
+    <string name="upd_fail_title">Não deu para atualizar</string>
+    <string name="upd_fail">Verifique a internet. Ou baixe manualmente pelo app Downloader:\n\n%s</string>
+    <string name="upd_open_browser">Abrir no navegador</string>
+    <string name="upd_no_browser">Nenhum navegador instalado</string>
 </resources>

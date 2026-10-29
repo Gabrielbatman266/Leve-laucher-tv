@@ -40,6 +40,7 @@ public class MainActivity extends Activity {
     private static final String KEY_HIDDEN = "hidden";   // pacotes ocultos, separados por "|"
 
     private static final String SETTINGS_ROW = "#settings";
+    private static final String UPDATE_ROW = "#update";
     private static final String HIDDEN_ROW = "#hidden";
 
     private final List<Row> rows = new ArrayList<>();
@@ -47,6 +48,7 @@ public class MainActivity extends Activity {
     private SharedPreferences prefs;
     private ListView list;
     private boolean showHidden = false;
+    private Updater updater;
 
     static final class Row {
         final String pkg;
@@ -67,6 +69,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        updater = new Updater(this);
 
         list = findViewById(R.id.list);
         list.setAdapter(adapter);
@@ -132,6 +135,8 @@ public class MainActivity extends Activity {
 
         // 3) Linhas fixas no final
         rows.add(new Row(SETTINGS_ROW, getString(R.string.settings), false, false));
+        rows.add(new Row(UPDATE_ROW,
+                getString(R.string.update_row, "1.0." + Updater.installedVersion(this)), false, false));
         if (hiddenCount > 0) {
             String label = showHidden
                     ? getString(R.string.hide_hidden)
@@ -158,6 +163,10 @@ public class MainActivity extends Activity {
     private void open(Row row) {
         if (SETTINGS_ROW.equals(row.pkg)) {
             startSafely(new Intent(Settings.ACTION_SETTINGS));
+            return;
+        }
+        if (UPDATE_ROW.equals(row.pkg)) {
+            updater.check();
             return;
         }
         if (HIDDEN_ROW.equals(row.pkg)) {

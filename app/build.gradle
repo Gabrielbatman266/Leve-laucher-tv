@@ -2,6 +2,9 @@ plugins {
     id 'com.android.application'
 }
 
+// No GitHub Actions cada build ganha um número maior (usado pelo "Atualizar")
+def runNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1') as int
+
 android {
     namespace 'com.leve.launchertv'
     compileSdk 34
@@ -10,8 +13,24 @@ android {
         applicationId 'com.leve.launchertv'
         minSdk 21
         targetSdk 34
-        versionCode 1
-        versionName '1.0'
+        versionCode runNumber
+        versionName "1.0.${runNumber}"
+    }
+
+    // Chave fixa vinda dos Secrets do GitHub (KEYSTORE_B64 / KEYSTORE_PASS).
+    // Sem ela cada build teria assinatura diferente e a atualização pelo app falharia.
+    def ks = file('leve.jks')
+    def ksPass = System.getenv('KEYSTORE_PASS')
+    def hasKey = ks.exists() && ksPass
+    signingConfigs {
+        leve {
+            if (hasKey) {
+                storeFile ks
+                storePassword ksPass
+                keyAlias 'leve'
+                keyPassword ksPass
+            }
+        }
     }
 
     buildTypes {
@@ -19,8 +38,7 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
-            // Assinado com a chave de debug para poder instalar direto (sideload)
-            signingConfig signingConfigs.debug
+            signingConfig hasKey ? signingConfigs.leve : signingConfigs.debug
         }
     }
 
