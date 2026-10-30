@@ -35,8 +35,8 @@ final class RemoteHub {
     static void add(Sink s) {
         clients.add(s);
         s.send(status());
-        String kb = lastKb;
-        if (kb != null) s.send(kb);
+        LeveMouseService m = mouse;
+        if (m != null) main.post(m::recheckKeyboard); // já tem campo aberto? avisa o celular
     }
 
     static void remove(Sink s) {
@@ -101,6 +101,16 @@ final class RemoteHub {
         switch (t) {
             case "ping":
                 return;
+            case "move": {
+                // não passa pela fila da tela: soma e aplica em lote (mais leve)
+                LeveMouseService m = mouse;
+                if (m != null) m.queueMove((float) j.optDouble("dx"), (float) j.optDouble("dy"));
+                else broadcastStatus();
+                return;
+            }
+            case "apps":
+                sendApps();
+                return;
             case "vol":
                 volume(j.optInt("d"));
                 return;
@@ -117,8 +127,20 @@ final class RemoteHub {
                 return;
             }
             switch (t) {
-                case "move":
-                    m.move((float) j.optDouble("dx"), (float) j.optDouble("dy"));
+                case "key":
+                    m.dpad(j.optString("k"));
+                    break;
+                case "dragStart":
+                    m.dragStart();
+                    break;
+                case "dragEnd":
+                    m.dragEnd();
+                    break;
+                case "open":
+                    if (!m.openApp(j.optString("p"))) toast("Não deu para abrir esse app");
+                    break;
+                case "settings":
+                    m.openSettings();
                     break;
                 case "click":
                     m.click(false);
@@ -150,6 +172,42 @@ final class RemoteHub {
             toast("Erro na TV: " + err.getClass().getSimpleName());
           }
         });
+    }
+
+    /** Lista de apps da TV para abrir pelo celular (principais primeiro). */
+    private static void sendApps() {
+        Context c = app;
+        if (c == null) return;
+        try {
+            android.content.pm.PackageManager pm = c.getPackageManager();
+            java.util.Map<String, String> apps = new java.util.HashMap<>();
+            for (String cat : new String[]{android.content.Intent.CATEGORY_LEANBACK_LAUNCHER,
+                    android.content.Intent.CATEGORY_LAUNCHER}) {
+                android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(cat);
+                for (android.content.pm.ResolveInfo ri : pm.queryIntentActivities(i, 0)) {
+                    String p = ri.activityInfo.packageName;
+                    if (!apps.containsKey(p)) {
+                        CharSequence l = ri.loadLabel(pm);
+                        apps.put(p, l == null ? p : l.toString().trim());
+                    }
+                }
+            }
+            apps.remove(c.getPackageName());
+            String raw = c.getSharedPreferences("leve", Context.MODE_PRIVATE).getString("pinned", "");
+            java.util.List<String> pinned = new java.util.ArrayList<>();
+            for (String p : raw.split("\\|")) if (!p.isEmpty() && apps.containsKey(p)) pinned.add(p);
+            java.util.List<String> rest = new java.util.ArrayList<>(apps.keySet());
+            rest.removeAll(pinned);
+            final java.text.Collator col = java.text.Collator.getInstance();
+            java.util.Collections.sort(rest, (a, b) -> col.compare(apps.get(a), apps.get(b)));
+
+            org.json.JSONArray arr = new org.json.JSONArray();
+            for (String p : pinned) arr.put(new JSONObject().put("p", p).put("n", apps.get(p)).put("main", true));
+            for (String p : rest) arr.put(new JSONObject().put("p", p).put("n", apps.get(p)));
+            broadcast(new JSONObject().put("t", "apps").put("list", arr).toString());
+        } catch (Exception e) {
+            LeveApp.log("RemoteHub.apps", e);
+        }
     }
 
     private static void volume(int d) {

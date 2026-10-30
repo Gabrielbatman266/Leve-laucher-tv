@@ -234,6 +234,13 @@ public class LeveMusicService extends Service {
                 webSocket(c, in, out, h.get("sec-websocket-key"));
                 return;
             }
+            if (rawPath.equals("/icon")) {
+                String pkg = target.indexOf("p=") >= 0 ? URLDecoder.decode(target.substring(target.indexOf("p=") + 2), "UTF-8") : "";
+                byte[] png = appIcon(pkg);
+                if (png == null) reply(out, 404, "text/plain", "");
+                else replyBytes(out, 200, "image/png", png);
+                return;
+            }
             if (rawPath.equals("/erro")) {
                 String e = LeveApp.read();
                 reply(out, 200, "text/plain", e == null ? "Nenhum erro registrado." : e);
@@ -371,6 +378,35 @@ public class LeveMusicService extends Service {
     }
 
     private byte[] remotePageCache;
+    private final Map<String, byte[]> iconCache = new HashMap<>();
+
+    /** Ícone pequeno (96 px) do app, para a lista de apps no celular. */
+    private byte[] appIcon(String pkg) {
+        if (pkg.isEmpty()) return null;
+        synchronized (iconCache) {
+            byte[] hit = iconCache.get(pkg);
+            if (hit != null) return hit;
+        }
+        try {
+            android.graphics.drawable.Drawable d = getPackageManager().getApplicationIcon(pkg);
+            int size = 96;
+            android.graphics.Bitmap b = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888);
+            android.graphics.Canvas cv = new android.graphics.Canvas(b);
+            d.setBounds(0, 0, size, size);
+            d.draw(cv);
+            java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+            b.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, buf);
+            b.recycle();
+            byte[] png = buf.toByteArray();
+            synchronized (iconCache) {
+                if (iconCache.size() > 80) iconCache.clear();
+                iconCache.put(pkg, png);
+            }
+            return png;
+        } catch (Exception e) {
+            return null;
+        }
+    }
 
     private byte[] remotePage() throws IOException {
         if (remotePageCache == null) {

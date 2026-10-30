@@ -2,6 +2,8 @@ package com.leve.launchertv;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Path;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
@@ -9,6 +11,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.View;
@@ -22,11 +25,17 @@ import java.util.List;
 
 /**
  * Leve Mouse — cursor por cima de qualquer app, controlado pelo celular.
- * Também percebe quando a TV abre o teclado e escreve no campo o que você digitar no celular.
+ * Também faz setas/OK (movendo o foco do app), segurar-e-arrastar, abre apps e
+ * escreve no campo de texto que a TV pedir.
+ *
+ * Leveza: o movimento que chega do celular é somado e aplicado no máximo ~30x por segundo,
+ * e sem celular conectado o serviço ignora todos os eventos.
  */
 public class LeveMouseService extends AccessibilityService {
 
-    private static final long HIDE_AFTER_MS = 6000;
+    private static final long HIDE_AFTER_MS = 5000;
+    private static final long MOVE_INTERVAL_MS = 33; // ~30 quadros por segundo
+    private static final long DRAG_SEGMENT_MS = 40;
 
     private final Handler h = new Handler(Looper.getMainLooper());
     private WindowManager wm;
@@ -36,6 +45,12 @@ public class LeveMouseService extends AccessibilityService {
     private int screenW = 1920, screenH = 1080;
     private boolean kbShown;
     private boolean editableFocused;
+
+    // movimento acumulado (vem da thread do WebSocket)
+    private final Object moveLock = new Object();
+    private float pendDx, pendDy;
+    private boolean movePosted;
+    private long lastMoveApplied;
 
     private final Runnable hide = () -> {
         if (cursor != null) cursor.setVisibility(View.GONE);
@@ -71,18 +86,21 @@ public class LeveMouseService extends AccessibilityService {
 
     @Override
     public void onDestroy() {
-        if (RemoteHub.mouse == this) RemoteHub.mouse = null;
-        removeCursor();
-        RemoteHub.broadcastStatus();
+        disconnect();
         super.onDestroy();
     }
 
     @Override
-    public boolean onUnbind(android.content.Intent intent) {
+    public boolean onUnbind(Intent intent) {
+        disconnect();
+        return super.onUnbind(intent);
+    }
+
+    private void disconnect() {
         if (RemoteHub.mouse == this) RemoteHub.mouse = null;
+        dragging = false;
         removeCursor();
         RemoteHub.broadcastStatus();
-        return super.onUnbind(intent);
     }
 
     private void readScreen() {
@@ -98,17 +116,20 @@ public class LeveMouseService extends AccessibilityService {
         if (Build.VERSION.SDK_INT < 22 || cursor != null) return;
         cursor = new ImageView(this);
         cursor.setImageResource(R.drawable.cursor);
-        int size = Math.round(32 * getResources().getDisplayMetrics().density);
+        int size = Math.round(30 * getResources().getDisplayMetrics().density);
         lp = new WindowManager.LayoutParams(size, size,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
                         | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-                        | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                        | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
                 PixelFormat.TRANSLUCENT);
         lp.gravity = Gravity.TOP | Gravity.LEFT;
         lp.x = (int) x;
         lp.y = (int) y;
+        // sem animação de janela: mover o cursor não dispara transições
+        lp.windowAnimations = 0;
         cursor.setVisibility(View.GONE);
         try {
             wm.addView(cursor, lp);
@@ -130,24 +151,52 @@ public class LeveMouseService extends AccessibilityService {
 
     private void showCursor() {
         if (cursor == null) return;
-        lp.x = Math.round(x);
-        lp.y = Math.round(y);
-        try {
-            if (cursor.getVisibility() != View.VISIBLE) cursor.setVisibility(View.VISIBLE);
-            wm.updateViewLayout(cursor, lp);
-        } catch (Exception ignored) {
+        int nx = Math.round(x), ny = Math.round(y);
+        boolean wasHidden = cursor.getVisibility() != View.VISIBLE;
+        if (wasHidden) cursor.setVisibility(View.VISIBLE);
+        if (wasHidden || nx != lp.x || ny != lp.y) {
+            lp.x = nx;
+            lp.y = ny;
+            try {
+                wm.updateViewLayout(cursor, lp);
+            } catch (Exception ignored) {
+            }
         }
         h.removeCallbacks(hide);
-        h.postDelayed(hide, HIDE_AFTER_MS);
+        h.postDelayed(hide, dragging ? HIDE_AFTER_MS * 3 : HIDE_AFTER_MS);
     }
 
-    /** dx/dy chegam em "pontos do celular"; escalamos para a tela da TV. */
-    void move(float dx, float dy) {
+    private void hideCursorNow() {
+        h.removeCallbacks(hide);
+        hide.run();
+    }
+
+    /** Chamado na thread do WebSocket: só soma; a tela é atualizada em lote. */
+    void queueMove(float dx, float dy) {
+        synchronized (moveLock) {
+            pendDx += dx;
+            pendDy += dy;
+            if (movePosted) return;
+            movePosted = true;
+        }
+        long wait = MOVE_INTERVAL_MS - (SystemClock.uptimeMillis() - lastMoveApplied);
+        h.postDelayed(applyMove, Math.max(0, wait));
+    }
+
+    private final Runnable applyMove = () -> {
+        float dx, dy;
+        synchronized (moveLock) {
+            dx = pendDx;
+            dy = pendDy;
+            pendDx = pendDy = 0;
+            movePosted = false;
+        }
+        lastMoveApplied = SystemClock.uptimeMillis();
         float k = screenW / 1280f * 1.4f;
         x = clamp(x + dx * k, 0, screenW - 2);
         y = clamp(y + dy * k, 0, screenH - 2);
         showCursor();
-    }
+    };
 
     private static float clamp(float v, float lo, float hi) {
         return v < lo ? lo : (v > hi ? hi : v);
@@ -157,22 +206,26 @@ public class LeveMouseService extends AccessibilityService {
 
     void click(boolean longPress) {
         showCursor();
+        tapAt(x, y, longPress);
+    }
+
+    private void tapAt(float px, float py, boolean longPress) {
         if (Build.VERSION.SDK_INT >= 24) {
             Path p = new Path();
-            p.moveTo(x, y);
+            p.moveTo(px, py);
             GestureDescription g = new GestureDescription.Builder()
                     .addStroke(new GestureDescription.StrokeDescription(p, 0, longPress ? 800 : 40))
                     .build();
             dispatchGesture(g, null, null);
         } else {
-            AccessibilityNodeInfo n = nodeAt(Math.round(x), Math.round(y));
+            AccessibilityNodeInfo n = nodeAt(Math.round(px), Math.round(py));
             if (n != null) {
                 n.performAction(longPress ? AccessibilityNodeInfo.ACTION_LONG_CLICK : AccessibilityNodeInfo.ACTION_CLICK);
             }
         }
     }
 
-    /** Arrasta a tela a partir do cursor (dois dedos no celular). */
+    /** Arrasta a tela a partir do cursor (dois dedos ou faixa da borda no celular). */
     void scroll(float dx, float dy) {
         showCursor();
         float k = screenW / 1280f * 2.2f;
@@ -197,8 +250,188 @@ public class LeveMouseService extends AccessibilityService {
         }
     }
 
+    // ---------- Segurar e arrastar ----------
+
+    private boolean dragging;
+    private boolean dragEndRequested;
+    private float dragX, dragY, dragStartX, dragStartY;
+    private GestureDescription.StrokeDescription dragStroke;
+
+    void dragStart() {
+        if (dragging) return;
+        // aplica o movimento pendente antes de "apertar"
+        h.removeCallbacks(applyMove);
+        applyMove.run();
+        dragging = true;
+        dragEndRequested = false;
+        dragX = dragStartX = x;
+        dragY = dragStartY = y;
+        showCursor();
+        if (Build.VERSION.SDK_INT >= 26) {
+            Path p = new Path();
+            p.moveTo(x, y);
+            dragStroke = new GestureDescription.StrokeDescription(p, 0, DRAG_SEGMENT_MS, true);
+            dispatchDrag();
+        }
+    }
+
+    void dragEnd() {
+        if (!dragging) return;
+        h.removeCallbacks(applyMove);
+        applyMove.run();
+        if (Build.VERSION.SDK_INT >= 26) {
+            dragEndRequested = true; // a próxima etapa solta o "dedo"
+        } else {
+            // Android 7: um arrasto só, do ponto inicial ao final
+            dragging = false;
+            if (Build.VERSION.SDK_INT >= 24) {
+                Path p = new Path();
+                p.moveTo(dragStartX, dragStartY);
+                p.lineTo(x, y);
+                GestureDescription g = new GestureDescription.Builder()
+                        .addStroke(new GestureDescription.StrokeDescription(p, 0, 450))
+                        .build();
+                dispatchGesture(g, null, null);
+            }
+        }
+    }
+
+    private void dispatchDrag() {
+        try {
+            GestureDescription g = new GestureDescription.Builder().addStroke(dragStroke).build();
+            boolean ok = dispatchGesture(g, new GestureResultCallback() {
+                @Override
+                public void onCompleted(GestureDescription d) {
+                    h.post(LeveMouseService.this::nextDragSegment);
+                }
+
+                @Override
+                public void onCancelled(GestureDescription d) {
+                    dragging = false;
+                }
+            }, h);
+            if (!ok) dragging = false;
+        } catch (Throwable t) {
+            dragging = false;
+            LeveApp.log("LeveMouse.drag", t);
+        }
+    }
+
+    private void nextDragSegment() {
+        if (!dragging || Build.VERSION.SDK_INT < 26) return;
+        boolean last = dragEndRequested;
+        Path p = new Path();
+        p.moveTo(dragX, dragY);
+        p.lineTo(x, y);
+        dragX = x;
+        dragY = y;
+        try {
+            dragStroke = dragStroke.continueStroke(p, 0, DRAG_SEGMENT_MS, !last);
+        } catch (Throwable t) {
+            dragging = false;
+            return;
+        }
+        if (last) {
+            dragging = false;
+            dragEndRequested = false;
+        }
+        dispatchDrag();
+    }
+
+    // ---------- Setas e OK (movem o foco do app, como o controle remoto) ----------
+
+    void dpad(String k) {
+        hideCursorNow(); // usando setas, o cursor só atrapalha
+        AccessibilityNodeInfo f = findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+
+        if (k.equals("ok") || k.equals("longok")) {
+            boolean longPress = k.equals("longok");
+            if (f == null) {
+                tapAt(x, y, longPress);
+                return;
+            }
+            boolean done = f.performAction(longPress
+                    ? AccessibilityNodeInfo.ACTION_LONG_CLICK : AccessibilityNodeInfo.ACTION_CLICK);
+            if (!done) {
+                AccessibilityNodeInfo c = f;
+                while (c != null && !c.isClickable()) c = c.getParent();
+                if (c != null) done = c.performAction(longPress
+                        ? AccessibilityNodeInfo.ACTION_LONG_CLICK : AccessibilityNodeInfo.ACTION_CLICK);
+            }
+            if (!done) {
+                Rect r = new Rect();
+                f.getBoundsInScreen(r);
+                tapAt(r.exactCenterX(), r.exactCenterY(), longPress);
+            }
+            return;
+        }
+
+        int dir;
+        switch (k) {
+            case "up": dir = View.FOCUS_UP; break;
+            case "down": dir = View.FOCUS_DOWN; break;
+            case "left": dir = View.FOCUS_LEFT; break;
+            default: dir = View.FOCUS_RIGHT; break;
+        }
+
+        if (f == null) {
+            AccessibilityNodeInfo first = firstFocusable(getRootInActiveWindow(), 0);
+            if (first != null) first.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
+            return;
+        }
+        AccessibilityNodeInfo next = f.focusSearch(dir);
+        if (next != null && !next.equals(f) && next.performAction(AccessibilityNodeInfo.ACTION_FOCUS)) return;
+
+        // chegou na borda: tenta rolar a lista
+        AccessibilityNodeInfo s = f;
+        while (s != null && !s.isScrollable()) s = s.getParent();
+        if (s != null) {
+            s.performAction(dir == View.FOCUS_DOWN || dir == View.FOCUS_RIGHT
+                    ? AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+                    : AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
+        }
+    }
+
+    private AccessibilityNodeInfo firstFocusable(AccessibilityNodeInfo n, int depth) {
+        if (n == null || depth > 30) return null;
+        if (n.isFocusable() && n.isVisibleToUser()) return n;
+        for (int i = 0; i < n.getChildCount(); i++) {
+            AccessibilityNodeInfo r = firstFocusable(n.getChild(i), depth + 1);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
+    // ---------- Outros ----------
+
     void global(int action) {
         performGlobalAction(action);
+    }
+
+    /** Abre um app da TV (serviço de acessibilidade pode abrir telas por trás). */
+    boolean openApp(String pkg) {
+        try {
+            if (pkg.equals(getPackageName())) {
+                startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                return true;
+            }
+            PackageManager pm = getPackageManager();
+            Intent i = pm.getLeanbackLaunchIntentForPackage(pkg);
+            if (i == null) i = pm.getLaunchIntentForPackage(pkg);
+            if (i == null) return false;
+            startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    void openSettings() {
+        try {
+            startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (Exception e) {
+            RemoteHub.toast("Não deu para abrir as configurações");
+        }
     }
 
     /** Para Androids sem gestos (antes do 7): acha o item clicável embaixo do cursor. */
@@ -227,6 +460,11 @@ public class LeveMouseService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent e) {
+        // Sem celular conectado não há por que gastar nada (ex.: vendo filme no YouCine)
+        if (!RemoteHub.hasClients()) {
+            if (kbShown) kbShown = false;
+            return;
+        }
         try {
             handleEvent(e);
         } catch (Throwable t) {
@@ -238,10 +476,12 @@ public class LeveMouseService extends AccessibilityService {
         int t = e.getEventType();
         if (t == AccessibilityEvent.TYPE_WINDOWS_CHANGED || t == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             h.removeCallbacks(checkKb);
-            h.postDelayed(checkKb, 150);
+            h.postDelayed(checkKb, 200);
         } else if (t == AccessibilityEvent.TYPE_VIEW_FOCUSED) {
             AccessibilityNodeInfo src = e.getSource();
-            editableFocused = src != null && src.isEditable();
+            boolean editable = src != null && src.isEditable();
+            if (editable == editableFocused && !editable) return; // nada mudou para o teclado
+            editableFocused = editable;
             h.removeCallbacks(checkKb);
             h.postDelayed(checkKb, 300);
         }
@@ -254,6 +494,13 @@ public class LeveMouseService extends AccessibilityService {
             LeveApp.log("LeveMouse.keyboard", t);
         }
     };
+
+    /** Quando um celular conecta, conta para ele se já tem um campo de texto aberto. */
+    void recheckKeyboard() {
+        kbShown = false;
+        h.removeCallbacks(checkKb);
+        h.postDelayed(checkKb, 100);
+    }
 
     private void checkKeyboard() {
         boolean imeVisible = false;
