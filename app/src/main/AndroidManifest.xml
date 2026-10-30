@@ -8,6 +8,14 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- Leve Music TV: receber e tocar música mandada pelo celular -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
     <!-- Android 11+: permite ver os apps instalados que têm tela inicial -->
     <queries>
         <intent>
@@ -27,7 +35,8 @@
         android:label="@string/app_name"
         android:largeHeap="false"
         android:supportsRtl="false"
-        android:theme="@style/Leve">
+        android:theme="@style/Leve"
+        android:usesCleartextTraffic="true">
 
         <activity
             android:name=".MainActivity"
@@ -47,6 +56,20 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".NowPlayingActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:taskAffinity="com.leve.launchertv.music" />
+
+        <service
+            android:name=".LeveMusicService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
         <!-- Só é ligado por um instante para forçar o seletor de tela inicial -->
         <activity-alias

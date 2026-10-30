@@ -31,6 +31,23 @@
     <string name="st_searching">Procurando o YouTube Leve…</string>
     <string name="st_name">YouTube Leve</string>
 
+    <string name="lm_channel">Leve Music TV</string>
+    <string name="lm_title">Leve Music TV</string>
+    <string name="lm_waiting">Esperando músicas do celular</string>
+    <string name="lm_now">♪  %1$s</string>
+    <string name="lm_open">Leve Music TV</string>
+    <string name="lm_on">Música do celular: ligada  ·  %1$s</string>
+    <string name="lm_on_noip">Música do celular: ligada</string>
+    <string name="lm_off">Música do celular: desligada</string>
+
+    <string name="np_label">TOCANDO DO CELULAR</string>
+    <string name="np_label_from">TOCANDO DE %1$s</string>
+    <string name="np_label_idle">LEVE MUSIC TV</string>
+    <string name="np_idle_title">Nada tocando</string>
+    <string name="np_idle_hint">No Leve Music do celular, toque no ícone de TV no player e escolha esta TV.\nOs dois precisam estar no mesmo Wi-Fi.</string>
+    <string name="np_ip">IP desta TV: %1$s  (porta %2$d)</string>
+    <string name="np_loading">Carregando…</string>
+
     <string name="upd_title">Atualizar</string>
     <string name="upd_checking">Procurando atualização…</string>
     <string name="upd_latest">Você já tem a versão mais nova (v%s)</string>

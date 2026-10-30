@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg">
+
+    <com.leve.launchertv.StarsView
+        android:id="@+id/stars"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:focusable="false" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingLeft="72dp"
+        android:paddingRight="72dp">
+
+        <ImageView
+            android:id="@+id/cover"
+            android:layout_width="300dp"
+            android:layout_height="300dp"
+            android:background="@drawable/cover_frame"
+            android:padding="3dp"
+            android:scaleType="centerCrop" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="48dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/np_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-light"
+                android:letterSpacing="0.3"
+                android:textColor="@color/section"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/np_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif"
+                android:maxLines="2"
+                android:shadowColor="@color/glow"
+                android:shadowRadius="16"
+                android:textColor="@color/text"
+                android:textSize="40sp" />
+
+            <TextView
+                android:id="@+id/np_artist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-light"
+                android:maxLines="2"
+                android:textColor="@color/dim"
+                android:textSize="22sp" />
+
+            <ProgressBar
+                android:id="@+id/np_bar"
+                style="@android:style/Widget.ProgressBar.Horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="6dp"
+                android:layout_marginTop="34dp"
+                android:max="1000"
+                android:progressDrawable="@drawable/np_progress" />
+
+            <TextView
+                android:id="@+id/np_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:fontFamily="sans-serif-light"
+                android:textColor="@color/dim"
+                android:textSize="16sp" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="26dp"
+                android:orientation="horizontal">
+
+                <TextView android:id="@+id/btn_prev" style="@style/NpButton" android:text="⏮" />
+                <TextView android:id="@+id/btn_back10" style="@style/NpButton" android:text="−10s" android:textSize="18sp" />
+                <TextView android:id="@+id/btn_play" style="@style/NpButton" android:minWidth="96dp" android:text="▶" />
+                <TextView android:id="@+id/btn_fwd10" style="@style/NpButton" android:text="+10s" android:textSize="18sp" />
+                <TextView android:id="@+id/btn_next" style="@style/NpButton" android:text="⏭" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/np_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:fontFamily="sans-serif-light"
+                android:textColor="@color/section"
+                android:textSize="15sp" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

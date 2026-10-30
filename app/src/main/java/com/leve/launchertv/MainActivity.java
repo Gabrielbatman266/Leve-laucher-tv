@@ -45,13 +45,15 @@ public class MainActivity extends Activity {
     private static final String KEY_STARS = "stars";
     private static final String KEY_FIRST = "first_done";
     private static final String KEY_ST_DONE = "st_pinned";
+    private static final String KEY_MUSIC = "music_on";
 
     // Tipos de linha
     static final int T_SECTION = 0, T_BIG = 1, T_APP = 2, T_ACTION = 3, T_BIG_ACTION = 4;
 
     // Ações do menu "Opções"
     private static final String A_SETTINGS = "settings", A_HOME = "home", A_STARS = "stars",
-            A_ALPHA = "alpha", A_HIDDEN = "hidden", A_UPDATE = "update", A_ST = "smarttube";
+            A_ALPHA = "alpha", A_HIDDEN = "hidden", A_UPDATE = "update", A_ST = "smarttube",
+            A_NOW = "now_playing", A_MUSIC = "music";
 
     private static final int REQ_HOME = 7;
 
@@ -69,6 +71,23 @@ public class MainActivity extends Activity {
 
     private int moveIndex = -1;          // linha sendo movida (-1 = não está movendo)
     private boolean swallowKeyUp = false;
+    private String shownTrack = null;      // música mostrada no topo (para atualizar a linha)
+
+    private final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable musicWatch = new Runnable() {
+        @Override
+        public void run() {
+            LeveMusicService s = LeveMusicService.get();
+            LeveMusicService.Track t = s == null ? null : s.current();
+            String now = t == null ? null : t.id + t.title;
+            if (moveIndex < 0 && (now == null ? shownTrack != null : !now.equals(shownTrack))) {
+                int pos = list.getSelectedItemPosition();
+                String sel = pos >= 0 && pos < rows.size() ? rows.get(pos).id : null;
+                reload(sel);
+            }
+            ui.postDelayed(this, 2000);
+        }
+    };
 
     static final class Row {
         final int type;
@@ -111,16 +130,19 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         disableFakeHomeIfUnused();
+        if (prefs.getBoolean(KEY_MUSIC, true)) LeveMusicService.start(this);
         stars.setAnimate(prefs.getBoolean(KEY_STARS, true));
         stars.setRunning(true);
         reload(null);
         list.requestFocus();
+        ui.postDelayed(musicWatch, 2000);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         stars.setRunning(false);
+        ui.removeCallbacks(musicWatch);
         if (moveIndex >= 0) endMove();
     }
 
@@ -158,6 +180,16 @@ public class MainActivity extends Activity {
             if (label != null) main.add(new Row(T_BIG, pkg, label, false));
         }
         boolean offerSmartTube = smartTube == null;
+
+        // Música do celular tocando: aparece no topo de tudo
+        LeveMusicService ms = LeveMusicService.get();
+        LeveMusicService.Track playing = ms == null ? null : ms.current();
+        shownTrack = playing == null ? null : playing.id + playing.title;
+        if (playing != null) {
+            String what = playing.title + (playing.artist.isEmpty() ? "" : "  —  " + playing.artist);
+            main.add(0, new Row(T_BIG_ACTION, A_NOW, getString(R.string.lm_now, what), false));
+        }
+
         if (!main.isEmpty() || offerSmartTube) {
             rows.add(new Row(T_SECTION, "", getString(R.string.sec_main), false));
             rows.addAll(main);
@@ -194,6 +226,10 @@ public class MainActivity extends Activity {
         rows.add(new Row(T_ACTION, A_SETTINGS, getString(R.string.settings), false));
         rows.add(new Row(T_ACTION, A_HOME,
                 getString(isDefaultHome() ? R.string.home_yes : R.string.home_no), false));
+        boolean musicOn = prefs.getBoolean(KEY_MUSIC, true);
+        String ip = LeveMusicService.localIp();
+        rows.add(new Row(T_ACTION, A_MUSIC, !musicOn ? getString(R.string.lm_off)
+                : ip.isEmpty() ? getString(R.string.lm_on_noip) : getString(R.string.lm_on, ip), false));
         rows.add(new Row(T_ACTION, A_STARS,
                 getString(prefs.getBoolean(KEY_STARS, true) ? R.string.stars_on : R.string.stars_off), false));
         if (!order.isEmpty()) {
@@ -306,6 +342,16 @@ public class MainActivity extends Activity {
                 break;
             case A_ST:
                 updater.installSmartTube();
+                break;
+            case A_NOW:
+                tryStart(new Intent(this, NowPlayingActivity.class));
+                break;
+            case A_MUSIC:
+                boolean m = !prefs.getBoolean(KEY_MUSIC, true);
+                prefs.edit().putBoolean(KEY_MUSIC, m).apply();
+                if (m) LeveMusicService.start(this);
+                else LeveMusicService.stop(this);
+                reload(A_MUSIC);
                 break;
         }
     }
@@ -558,7 +604,9 @@ public class MainActivity extends Activity {
             TextView label = v.findViewById(R.id.label);
             ImageView icon = v.findViewById(R.id.icon);
 
-            if (r.type == T_BIG || r.type == T_BIG_ACTION) {
+            if (A_NOW.equals(r.id)) {
+                label.setText(r.label);
+            } else if (r.type == T_BIG || r.type == T_BIG_ACTION) {
                 label.setText("★  " + r.label);
             } else {
                 label.setText(r.label);
@@ -570,7 +618,7 @@ public class MainActivity extends Activity {
                 } else if (r.type == T_BIG_ACTION) {
                     icon.setTag(null);
                     icon.setVisibility(View.VISIBLE);
-                    icon.setImageResource(R.drawable.play);
+                    icon.setImageResource(A_NOW.equals(r.id) ? R.drawable.note : R.drawable.play);
                 } else {
                     icon.setTag(null);
                     icon.setImageDrawable(null);
