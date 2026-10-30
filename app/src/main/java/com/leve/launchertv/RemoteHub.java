@@ -37,10 +37,57 @@ final class RemoteHub {
         s.send(status());
         LeveMouseService m = mouse;
         if (m != null) main.post(m::recheckKeyboard); // já tem campo aberto? avisa o celular
+        main.post(RemoteHub::refreshImeBar);
     }
 
     static void remove(Sink s) {
         clients.remove(s);
+        main.post(RemoteHub::refreshImeBar);
+    }
+
+    private static void refreshImeBar() {
+        LeveKeyboard k = LeveKeyboard.instance;
+        if (k != null) k.updateBar();
+    }
+
+    /** Teclas de mídia (play, avançar, voltar) para o app que está tocando. */
+    static void mediaKey(int code) {
+        Context c = app;
+        if (c == null) return;
+        AudioManager am = (AudioManager) c.getSystemService(Context.AUDIO_SERVICE);
+        if (am == null) return;
+        am.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, code));
+        am.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, code));
+    }
+
+    private static int keyCode(String k) {
+        switch (k) {
+            case "up": return KeyEvent.KEYCODE_DPAD_UP;
+            case "down": return KeyEvent.KEYCODE_DPAD_DOWN;
+            case "left": return KeyEvent.KEYCODE_DPAD_LEFT;
+            case "right": return KeyEvent.KEYCODE_DPAD_RIGHT;
+            case "back": return KeyEvent.KEYCODE_BACK;
+            case "menu": return KeyEvent.KEYCODE_MENU;
+            default: return KeyEvent.KEYCODE_DPAD_CENTER; // ok / longok
+        }
+    }
+
+    /** Comandos que o Leve Teclado faz melhor (teclas e texto de verdade). Retorna true se tratou. */
+    private static boolean viaKeyboard(String t, JSONObject j) {
+        LeveKeyboard kb = LeveKeyboard.active();
+        if (kb == null) return false;
+        switch (t) {
+            case "key": {
+                String k = j.optString("k");
+                return kb.key(keyCode(k), k.equals("longok"));
+            }
+            case "text":
+                return kb.setText(j.optString("v"));
+            case "enter":
+                return kb.enter();
+            default:
+                return false;
+        }
     }
 
     static boolean hasClients() {
@@ -60,6 +107,7 @@ final class RemoteHub {
             return new JSONObject()
                     .put("t", "status")
                     .put("mouse", mouse != null)
+                    .put("ime", LeveKeyboard.instance != null)
                     .put("name", LeveMusicService.deviceName())
                     .put("api", Build.VERSION.SDK_INT)
                     .toString();
@@ -120,7 +168,12 @@ final class RemoteHub {
         }
         main.post(() -> {
           try {
+            if (viaKeyboard(t, j)) return;
             LeveMouseService m = mouse;
+            if (m == null && t.equals("key")) {
+                toast("Ative o Leve Teclado ou o Leve Mouse na TV (Opções do launcher)");
+                return;
+            }
             if (m == null) {
                 broadcastStatus();
                 toast("Ative o Leve Mouse na TV (Opções do launcher)");

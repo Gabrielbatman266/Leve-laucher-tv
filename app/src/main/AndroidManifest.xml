@@ -72,6 +72,20 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
 
+        <!-- Leve Teclado: teclas de verdade (setas/OK) e texto vindos do celular -->
+        <service
+            android:name=".LeveKeyboard"
+            android:exported="true"
+            android:label="@string/ime_name"
+            android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/leve_keyboard" />
+        </service>
+
         <!-- Leve Mouse: cursor e teclado controlados pelo celular -->
         <service
             android:name=".LeveMouseService"

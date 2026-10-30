@@ -66,6 +66,8 @@
     background: rgba(48,192,255,.14); box-shadow: inset 0 0 0 1px var(--line); }
   .dpad .ok.press, .dpad .ok:active { background: rgba(48,192,255,.34); }
   .dhint { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--dim); }
+  #imeTip { display: none; position: absolute; top: 0; left: 0; right: 0; font-size: 12.5px; line-height: 1.35; padding: 8px 10px;
+    border-radius: 12px; border: 1px solid var(--gold); color: var(--gold); background: rgba(255,201,77,.08); text-align: center; }
 
   /* botões */
   .row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
@@ -134,6 +136,7 @@
   </div>
 
   <div id="dpadArea" class="area">
+    <div id="imeTip">Dentro de players (YouCine) as setas precisam do <b>Leve Teclado</b>.<br>Na TV: <b>Opções → Ativar setas em qualquer app</b>.</div>
     <div class="dpad">
       <button class="up" data-k="up">▲</button>
       <button class="left" data-k="left">◀</button>
@@ -232,7 +235,8 @@
   function onMsg(m) {
     if (m.t === 'status') {
       if (m.name) stt.textContent = m.name;
-      warn.style.display = m.mouse ? 'none' : 'block';
+      warn.style.display = (m.mouse || m.ime) ? 'none' : 'block';
+      $('imeTip').style.display = m.ime ? 'none' : 'block';
     } else if (m.t === 'kb') {
       if (m.open) {
         txt.value = m.text || '';

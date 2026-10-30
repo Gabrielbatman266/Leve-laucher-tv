@@ -347,7 +347,9 @@ public class LeveMouseService extends AccessibilityService {
         if (k.equals("ok") || k.equals("longok")) {
             boolean longPress = k.equals("longok");
             if (f == null) {
-                tapAt(x, y, longPress);
+                // Nada selecionado (ex.: vídeo tocando): OK vira play/pausa, nunca um toque na tela
+                RemoteHub.mediaKey(android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+                hintKeyboard();
                 return;
             }
             boolean done = f.performAction(longPress
@@ -375,8 +377,17 @@ public class LeveMouseService extends AccessibilityService {
         }
 
         if (f == null) {
+            // Player de vídeo sem seleção: esquerda/direita viram voltar/avançar
+            if (dir == View.FOCUS_LEFT || dir == View.FOCUS_RIGHT) {
+                RemoteHub.mediaKey(dir == View.FOCUS_LEFT
+                        ? android.view.KeyEvent.KEYCODE_MEDIA_REWIND
+                        : android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD);
+                hintKeyboard();
+                return;
+            }
             AccessibilityNodeInfo first = firstFocusable(getRootInActiveWindow(), 0);
             if (first != null) first.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
+            else hintKeyboard();
             return;
         }
         AccessibilityNodeInfo next = f.focusSearch(dir);
@@ -390,6 +401,16 @@ public class LeveMouseService extends AccessibilityService {
                     ? AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
                     : AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
         }
+    }
+
+    private long lastKbHint;
+
+    /** Uma dica por minuto: no player, as setas de verdade vêm do Leve Teclado. */
+    private void hintKeyboard() {
+        long now = SystemClock.uptimeMillis();
+        if (now - lastKbHint < 60000) return;
+        lastKbHint = now;
+        RemoteHub.toast("Para as setas funcionarem dentro do player, ative o Leve Teclado (Opções do launcher na TV)");
     }
 
     private AccessibilityNodeInfo firstFocusable(AccessibilityNodeInfo n, int depth) {

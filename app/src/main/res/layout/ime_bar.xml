@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Barrinha do Leve Teclado (aparece só quando um campo de texto pede teclado) -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="#E6040B2A"
+    android:fontFamily="sans-serif-light"
+    android:gravity="center"
+    android:paddingBottom="14dp"
+    android:paddingLeft="24dp"
+    android:paddingRight="24dp"
+    android:paddingTop="14dp"
+    android:textColor="#EAF1FF"
+    android:textSize="18sp" />

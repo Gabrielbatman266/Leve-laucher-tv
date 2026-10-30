@@ -53,7 +53,7 @@ public class MainActivity extends Activity {
     // Ações do menu "Opções"
     private static final String A_SETTINGS = "settings", A_HOME = "home", A_STARS = "stars",
             A_ALPHA = "alpha", A_HIDDEN = "hidden", A_UPDATE = "update", A_ST = "smarttube",
-            A_NOW = "now_playing", A_MUSIC = "music", A_MOUSE = "mouse";
+            A_NOW = "now_playing", A_MUSIC = "music", A_MOUSE = "mouse", A_IME = "ime";
 
     private static final int REQ_HOME = 7;
 
@@ -254,6 +254,9 @@ public class MainActivity extends Activity {
         rows.add(new Row(T_ACTION, A_MOUSE, !mouseOn ? getString(R.string.mouse_off)
                 : ip.isEmpty() ? getString(R.string.mouse_on_noip)
                 : getString(R.string.mouse_on, ip + ":" + LeveMusicService.PORT), false));
+        int ime = imeState();
+        rows.add(new Row(T_ACTION, A_IME, getString(ime == 2 ? R.string.ime_on
+                : ime == 1 ? R.string.ime_enabled : R.string.ime_off), false));
         rows.add(new Row(T_ACTION, A_STARS,
                 getString(prefs.getBoolean(KEY_STARS, true) ? R.string.stars_on : R.string.stars_off), false));
         if (!order.isEmpty()) {
@@ -369,6 +372,24 @@ public class MainActivity extends Activity {
                 break;
             case A_NOW:
                 tryStart(new Intent(this, NowPlayingActivity.class));
+                break;
+            case A_IME:
+                if (imeState() == 0) {
+                    new AlertDialog.Builder(this)
+                            .setTitle(R.string.ime_name)
+                            .setMessage(R.string.ime_explain)
+                            .setPositiveButton(R.string.mouse_open_settings, (d, w) -> {
+                                if (!tryStart(new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))) {
+                                    Toast.makeText(this, R.string.cant_open, Toast.LENGTH_SHORT).show();
+                                }
+                            })
+                            .setNegativeButton(R.string.upd_later, null)
+                            .show();
+                } else {
+                    android.view.inputmethod.InputMethodManager imm =
+                            (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                    if (imm != null) imm.showInputMethodPicker();
+                }
                 break;
             case A_MOUSE:
                 if (!prefs.getBoolean(KEY_MUSIC, true)) {
@@ -533,6 +554,25 @@ public class MainActivity extends Activity {
             return true;
         }
         return super.dispatchKeyEvent(e);
+    }
+
+    /** 0 = Leve Teclado desligado, 1 = ligado mas não escolhido, 2 = é o teclado atual. */
+    private int imeState() {
+        try {
+            String id = getPackageName() + "/" + LeveKeyboard.class.getName();
+            String shortId = getPackageName() + "/.LeveKeyboard";
+            String current = Settings.Secure.getString(getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD);
+            if (current != null && (current.equals(id) || current.equals(shortId))) return 2;
+            android.view.inputmethod.InputMethodManager imm =
+                    (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                for (android.view.inputmethod.InputMethodInfo i : imm.getEnabledInputMethodList()) {
+                    if (getPackageName().equals(i.getPackageName())) return 1;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return 0;
     }
 
     // ================= Tela inicial padrão =================
