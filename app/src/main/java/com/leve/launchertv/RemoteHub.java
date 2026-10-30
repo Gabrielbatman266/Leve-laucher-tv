@@ -34,7 +34,10 @@ final class RemoteHub {
 
     static void add(Sink s) {
         clients.add(s);
-        s.send(status());
+        try {
+            s.send(status()); // chamado na thread do WebSocket: pode usar a rede
+        } catch (Throwable ignored) {
+        }
         LeveMouseService m = mouse;
         if (m != null) main.post(m::recheckKeyboard); // já tem campo aberto? avisa o celular
         main.post(RemoteHub::refreshImeBar);
@@ -94,8 +97,23 @@ final class RemoteHub {
         return !clients.isEmpty();
     }
 
-    static void broadcast(String json) {
-        for (Sink s : clients) s.send(json);
+    /** Envio para o celular sempre fora da thread principal (Android proíbe rede nela). */
+    private static final java.util.concurrent.ExecutorService sender =
+            java.util.concurrent.Executors.newSingleThreadExecutor();
+
+    static void broadcast(final String json) {
+        if (clients.isEmpty()) return;
+        try {
+            sender.execute(() -> {
+                for (Sink s : clients) {
+                    try {
+                        s.send(json);
+                    } catch (Throwable ignored) {
+                    }
+                }
+            });
+        } catch (Throwable ignored) {
+        }
     }
 
     static void broadcastStatus() {

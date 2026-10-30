@@ -33,7 +33,11 @@ public class LeveKeyboard extends InputMethodService {
     public void onCreate() {
         super.onCreate();
         instance = this;
-        RemoteHub.broadcastStatus();
+        try {
+            RemoteHub.broadcastStatus();
+        } catch (Throwable t) {
+            LeveApp.log("LeveTeclado.onCreate", t);
+        }
     }
 
     @Override
@@ -73,8 +77,12 @@ public class LeveKeyboard extends InputMethodService {
         super.onStartInputView(info, restarting);
         editor = info;
         inputShown = true;
-        updateBar();
-        RemoteHub.keyboard(true, currentText(), info.hintText == null ? "" : info.hintText.toString());
+        try {
+            updateBar();
+            RemoteHub.keyboard(true, currentText(), info.hintText == null ? "" : info.hintText.toString());
+        } catch (Throwable t) {
+            LeveApp.log("LeveTeclado.startInputView", t);
+        }
     }
 
     @Override

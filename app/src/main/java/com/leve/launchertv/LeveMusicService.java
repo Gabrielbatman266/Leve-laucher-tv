@@ -440,7 +440,8 @@ public class LeveMusicService extends Service {
             synchronized (lock) {
                 try {
                     wsWrite(out, 1, text.getBytes(StandardCharsets.UTF_8));
-                } catch (IOException ignored) {
+                } catch (Throwable ignored) {
+                    // celular saiu: a leitura do WebSocket encerra e remove este cliente
                 }
             }
         };
