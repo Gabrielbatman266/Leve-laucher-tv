@@ -48,6 +48,14 @@
     <string name="np_ip">IP desta TV: %1$s  (porta %2$d)</string>
     <string name="np_loading">Carregando…</string>
 
+    <string name="mouse_name">Leve Mouse</string>
+    <string name="mouse_desc">Mostra um cursor por cima dos apps e deixa você usar o celular como mouse e teclado da TV (pela página Leve Controle, no mesmo Wi-Fi). Não coleta nem envia nada para fora da sua rede.</string>
+    <string name="mouse_on">Mouse e teclado pelo celular: ligado  ·  abra %1$s no celular</string>
+    <string name="mouse_on_noip">Mouse e teclado pelo celular: ligado</string>
+    <string name="mouse_off">Ativar mouse e teclado pelo celular</string>
+    <string name="mouse_enable_hint">Ligue o \"Leve Mouse\" nesta lista</string>
+    <string name="mouse_need_music">Ligue \"Música do celular\" também: o controle usa a mesma conexão</string>
+
     <string name="upd_title">Atualizar</string>
     <string name="upd_checking">Procurando atualização…</string>
     <string name="upd_latest">Você já tem a versão mais nova (v%s)</string>

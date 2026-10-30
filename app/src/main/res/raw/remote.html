@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#01020A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Leve Controle</title>
+<style>
+  :root {
+    --bg: #01020A; --sky: #0A1A4A; --text: #EAF1FF; --dim: #7F93C9;
+    --line: rgba(143,200,255,.55); --sel: rgba(48,192,255,.22); --gold: #FFD27A;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden;
+    overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
+  body { display: flex; flex-direction: column; gap: 10px;
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+    background: radial-gradient(120% 70% at 75% 110%, rgba(58,107,255,.30), transparent 60%),
+                linear-gradient(180deg, #01020A 0%, #040B2A 60%, #0A1A4A 100%); }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
+  .brand { letter-spacing: .3em; font-weight: 300; font-size: 13px; color: var(--dim); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f55; margin-right: 6px; vertical-align: middle; }
+  .dot.on { background: #5f8; box-shadow: 0 0 8px #5f8; }
+  #st { font-size: 13px; color: var(--dim); text-align: right; }
+  #warn { display: none; font-size: 14px; line-height: 1.35; padding: 10px 12px; border-radius: 12px;
+    border: 1px solid var(--gold); color: var(--gold); background: rgba(255,201,77,.08); }
+  #pad { flex: 1; min-height: 160px; position: relative; border-radius: 18px; touch-action: none;
+    border: 1px solid var(--line); overflow: hidden;
+    background: radial-gradient(60% 50% at 50% 40%, rgba(77,125,255,.16), transparent 70%), rgba(255,255,255,.03); }
+  #pad .hint { position: absolute; inset: auto 0 14px 0; text-align: center; font-size: 13px; color: var(--dim); line-height: 1.5; pointer-events: none; }
+  #pad.active { background: radial-gradient(60% 50% at 50% 40%, rgba(77,125,255,.28), transparent 70%), rgba(255,255,255,.05); }
+  .star { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #DCE8FF; opacity: .5; pointer-events: none; }
+  .row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  button { font: inherit; color: var(--text); background: rgba(255,255,255,.06); border: 1px solid rgba(143,200,255,.25);
+    border-radius: 14px; min-height: 52px; font-size: 20px; padding: 0; touch-action: manipulation; }
+  button:active { background: var(--sel); border-color: var(--line); }
+  button small { display: block; font-size: 10px; color: var(--dim); margin-top: 2px; letter-spacing: .05em; }
+  #kb { display: flex; gap: 8px; align-items: stretch; }
+  #kb.ask { animation: pulse 1.2s ease-in-out infinite; border-radius: 16px; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 3px rgba(255,210,122,.45); } }
+  #txt { flex: 1; min-width: 0; font: inherit; font-size: 17px; color: var(--text); background: rgba(255,255,255,.06);
+    border: 1px solid rgba(143,200,255,.35); border-radius: 14px; padding: 0 14px; min-height: 52px; outline: none; user-select: text; -webkit-user-select: text; }
+  #txt:focus { border-color: var(--line); background: rgba(48,192,255,.10); }
+  #enter { width: 72px; font-size: 15px; }
+  #banner { display: none; text-align: center; font-size: 15px; color: var(--gold); padding: 2px 0; }
+  #toast { position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%); max-width: 90%;
+    background: rgba(10,26,74,.95); border: 1px solid var(--line); padding: 10px 14px; border-radius: 12px; font-size: 14px;
+    opacity: 0; transition: opacity .2s; pointer-events: none; text-align: center; }
+  #toast.show { opacity: 1; }
+  .sens { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dim); }
+  .sens input { flex: 1; accent-color: #4D7DFF; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">LEVE CONTROLE</div>
+    <div id="st"><span class="dot" id="dot"></span><span id="stt">Conectando…</span></div>
+  </header>
+
+  <div id="warn">O mouse ainda não está ativo na TV.<br>No launcher da TV, vá em <b>Opções → Ativar mouse e teclado pelo celular</b> e ligue o <b>Leve Mouse</b>.</div>
+
+  <div id="pad">
+    <div class="hint">1 dedo: mover &nbsp;·&nbsp; toque: clicar &nbsp;·&nbsp; segurar: clique longo<br>2 dedos: rolar &nbsp;·&nbsp; toque com 2 dedos: voltar</div>
+  </div>
+
+  <div id="banner">⌨ A TV pediu teclado — digite abaixo</div>
+  <div id="kb">
+    <input id="txt" type="text" placeholder="Digitar na TV…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+    <button id="enter">Enter</button>
+  </div>
+
+  <div class="row">
+    <button data-a="back">◀<small>VOLTAR</small></button>
+    <button data-a="home">⌂<small>INÍCIO</small></button>
+    <button data-a="recents">▭<small>APPS</small></button>
+    <button data-a="playpause">⏯<small>PLAY</small></button>
+    <button data-v="-1">🔉<small>VOL −</small></button>
+    <button data-v="1">🔊<small>VOL +</small></button>
+  </div>
+
+  <div class="sens">Velocidade <input id="speed" type="range" min="0.5" max="3" step="0.1"></div>
+
+  <div id="toast"></div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const pad = $('pad'), dot = $('dot'), stt = $('stt'), warn = $('warn');
+  const txt = $('txt'), kb = $('kb'), banner = $('banner'), toastEl = $('toast'), speed = $('speed');
+
+  // estrelinhas no touchpad (só enfeite, sem animação = sem gasto)
+  for (let i = 0; i < 40; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.left = (Math.random() * 100) + '%';
+    s.style.top = (Math.random() * 85) + '%';
+    s.style.opacity = (0.2 + Math.random() * 0.6).toFixed(2);
+    if (Math.random() > 0.9) { s.style.width = s.style.height = '3px'; }
+    pad.appendChild(s);
+  }
+
+  // velocidade lembrada neste celular
+  let sens = 1.2;
+  try { sens = parseFloat(localStorage.getItem('leve.speed')) || 1.2; } catch (e) {}
+  speed.value = sens;
+  speed.addEventListener('input', () => {
+    sens = parseFloat(speed.value);
+    try { localStorage.setItem('leve.speed', String(sens)); } catch (e) {}
+  });
+
+  // ---------- conexão ----------
+  let ws = null, retry = 500, alive = false;
+  function connect() {
+    try { ws = new WebSocket('ws://' + location.host + '/ws'); } catch (e) { return later(); }
+    ws.onopen = () => { alive = true; retry = 500; dot.classList.add('on'); stt.textContent = 'Conectado'; };
+    ws.onclose = () => { alive = false; dot.classList.remove('on'); stt.textContent = 'Reconectando…'; later(); };
+    ws.onerror = () => { try { ws.close(); } catch (e) {} };
+    ws.onmessage = (ev) => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } onMsg(m); };
+  }
+  function later() { setTimeout(connect, retry); retry = Math.min(retry * 2, 5000); }
+  function send(o) { if (alive && ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+  setInterval(() => send({ t: 'ping' }), 15000);
+  connect();
+
+  function onMsg(m) {
+    if (m.t === 'status') {
+      if (m.name) stt.textContent = m.name;
+      warn.style.display = m.mouse ? 'none' : 'block';
+    } else if (m.t === 'kb') {
+      if (m.open) {
+        txt.value = m.text || '';
+        lastSent = txt.value;
+        txt.placeholder = m.hint || 'Digitar na TV…';
+        banner.style.display = 'block';
+        kb.classList.add('ask');
+        try { txt.focus({ preventScroll: true }); } catch (e) {}
+        if (navigator.vibrate) navigator.vibrate(40);
+      } else {
+        banner.style.display = 'none';
+        kb.classList.remove('ask');
+      }
+    } else if (m.t === 'toast') {
+      toast(m.msg);
+    }
+  }
+  let toastTimer = 0;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
+  }
+
+  // ---------- touchpad ----------
+  let pdx = 0, pdy = 0, sdx = 0, sdy = 0;
+  let fingers = 0, maxFingers = 0, moved = 0, t0 = 0, lx = 0, ly = 0, lt = 0, longTimer = 0, longFired = false;
+  const center = (ts) => {
+    let x = 0, y = 0;
+    for (const t of ts) { x += t.clientX; y += t.clientY; }
+    return [x / ts.length, y / ts.length];
+  };
+
+  pad.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    fingers = e.touches.length;
+    if (fingers === 1) { maxFingers = 1; moved = 0; t0 = performance.now(); longFired = false; }
+    maxFingers = Math.max(maxFingers, fingers);
+    [lx, ly] = center(e.touches); lt = performance.now();
+    pad.classList.add('active');
+    clearTimeout(longTimer);
+    if (fingers === 1) {
+      longTimer = setTimeout(() => {
+        if (moved < 10 && fingers === 1) { longFired = true; send({ t: 'long' }); if (navigator.vibrate) navigator.vibrate(30); }
+      }, 550);
+    }
+  }, { passive: false });
+
+  pad.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const [x, y] = center(e.touches);
+    const now = performance.now();
+    const dx = x - lx, dy = y - ly, dt = Math.max(1, now - lt);
+    lx = x; ly = y; lt = now;
+    moved += Math.abs(dx) + Math.abs(dy);
+    if (moved > 10) clearTimeout(longTimer);
+    if (e.touches.length >= 2) {
+      sdx += dx; sdy += dy;
+    } else {
+      // aceleração: movimento rápido anda mais
+      const v = Math.hypot(dx, dy) / dt;
+      const acc = sens * (1 + Math.min(v, 3) * 0.9);
+      pdx += dx * acc; pdy += dy * acc;
+    }
+  }, { passive: false });
+
+  pad.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    fingers = e.touches.length;
+    if (fingers > 0) { [lx, ly] = center(e.touches); return; }
+    pad.classList.remove('active');
+    clearTimeout(longTimer);
+    const dur = performance.now() - t0;
+    if (!longFired && moved < 10 && dur < 300) {
+      if (maxFingers >= 2) send({ t: 'back' });
+      else send({ t: 'click' });
+    }
+  }, { passive: false });
+  pad.addEventListener('touchcancel', () => { fingers = 0; clearTimeout(longTimer); pad.classList.remove('active'); });
+
+  // manda os movimentos juntos, uma vez por quadro (suave e sem lotar a rede)
+  let lastScroll = 0;
+  function frame(ts) {
+    if (pdx || pdy) { send({ t: 'move', dx: +pdx.toFixed(1), dy: +pdy.toFixed(1) }); pdx = pdy = 0; }
+    if ((sdx || sdy) && ts - lastScroll > 120) {
+      send({ t: 'scroll', dx: +sdx.toFixed(1), dy: +sdy.toFixed(1) }); sdx = sdy = 0; lastScroll = ts;
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ---------- botões ----------
+  document.querySelectorAll('button[data-a]').forEach((b) =>
+    b.addEventListener('click', () => { send({ t: b.dataset.a }); if (navigator.vibrate) navigator.vibrate(15); }));
+  document.querySelectorAll('button[data-v]').forEach((b) =>
+    b.addEventListener('click', () => { send({ t: 'vol', d: +b.dataset.v }); if (navigator.vibrate) navigator.vibrate(15); }));
+
+  // ---------- teclado ----------
+  let lastSent = '', textTimer = 0;
+  txt.addEventListener('input', () => {
+    clearTimeout(textTimer);
+    textTimer = setTimeout(() => {
+      if (txt.value !== lastSent) { lastSent = txt.value; send({ t: 'text', v: txt.value }); }
+    }, 60);
+  });
+  function enter() {
+    clearTimeout(textTimer);
+    if (txt.value !== lastSent) { lastSent = txt.value; send({ t: 'text', v: txt.value }); }
+    setTimeout(() => send({ t: 'enter' }), 80);
+  }
+  txt.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); enter(); } });
+  $('enter').addEventListener('click', enter);
+})();
+</script>
+</body>
+</html>

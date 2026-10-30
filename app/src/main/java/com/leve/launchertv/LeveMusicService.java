@@ -124,6 +124,7 @@ public class LeveMusicService extends Service {
     public void onCreate() {
         super.onCreate();
         instance = this;
+        RemoteHub.app = getApplicationContext();
         goForeground();
         running = true;
         pool.execute(this::serve);
@@ -221,6 +222,17 @@ public class LeveMusicService extends Service {
                 int i = line.indexOf(':');
                 if (i > 0) h.put(line.substring(0, i).trim().toLowerCase(), line.substring(i + 1).trim());
             }
+            // Controle do celular: página e canal em tempo real
+            String rawPath = target.indexOf('?') >= 0 ? target.substring(0, target.indexOf('?')) : target;
+            if (rawPath.equals("/ws") && "websocket".equalsIgnoreCase(h.get("upgrade"))) {
+                webSocket(c, in, out, h.get("sec-websocket-key"));
+                return;
+            }
+            if (rawPath.equals("/") || rawPath.equals("/controle") || rawPath.equals("/remote")) {
+                replyBytes(out, 200, "text/html; charset=utf-8", remotePage());
+                return;
+            }
+
             String body = "";
             String cl = h.get("content-length");
             if (cl != null) {
@@ -333,6 +345,117 @@ public class LeveMusicService extends Service {
                 + "Connection: close\r\n\r\n";
         out.write(head.getBytes(StandardCharsets.US_ASCII));
         out.write(b);
+        out.flush();
+    }
+
+    private static void replyBytes(OutputStream out, int code, String type, byte[] b) throws IOException {
+        String head = "HTTP/1.1 " + code + " OK\r\n"
+                + "Content-Type: " + type + "\r\n"
+                + "Content-Length: " + b.length + "\r\n"
+                + "Cache-Control: no-cache\r\n"
+                + "Connection: close\r\n\r\n";
+        out.write(head.getBytes(StandardCharsets.US_ASCII));
+        out.write(b);
+        out.flush();
+    }
+
+    private byte[] remotePageCache;
+
+    private byte[] remotePage() throws IOException {
+        if (remotePageCache == null) {
+            try (InputStream in = getResources().openRawResource(R.raw.remote)) {
+                java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+                byte[] b = new byte[8192];
+                int n;
+                while ((n = in.read(b)) > 0) buf.write(b, 0, n);
+                remotePageCache = buf.toByteArray();
+            }
+        }
+        return remotePageCache;
+    }
+
+    // ---------- WebSocket (mouse e teclado em tempo real) ----------
+
+    private void webSocket(Socket c, InputStream in, final OutputStream out, String key) throws Exception {
+        if (key == null) return;
+        String accept = android.util.Base64.encodeToString(
+                java.security.MessageDigest.getInstance("SHA-1").digest(
+                        (key.trim() + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").getBytes(StandardCharsets.US_ASCII)),
+                android.util.Base64.NO_WRAP);
+        out.write(("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                + "Sec-WebSocket-Accept: " + accept + "\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
+        out.flush();
+        c.setSoTimeout(60000);
+        c.setTcpNoDelay(true);
+
+        final Object lock = new Object();
+        RemoteHub.Sink sink = text -> {
+            synchronized (lock) {
+                try {
+                    wsWrite(out, 1, text.getBytes(StandardCharsets.UTF_8));
+                } catch (IOException ignored) {
+                }
+            }
+        };
+        RemoteHub.add(sink);
+        try {
+            while (running) {
+                int b0 = in.read();
+                if (b0 < 0) break;
+                int b1 = in.read();
+                if (b1 < 0) break;
+                int op = b0 & 0x0F;
+                boolean masked = (b1 & 0x80) != 0;
+                long len = b1 & 0x7F;
+                if (len == 126) {
+                    len = ((long) in.read() << 8) | in.read();
+                } else if (len == 127) {
+                    len = 0;
+                    for (int i = 0; i < 8; i++) len = (len << 8) | in.read();
+                }
+                if (len < 0 || len > (1 << 20)) break;
+                byte[] mask = new byte[4];
+                if (masked) readFully(in, mask);
+                byte[] data = new byte[(int) len];
+                readFully(in, data);
+                if (masked) for (int i = 0; i < data.length; i++) data[i] ^= mask[i & 3];
+                if (op == 8) break;                       // fechar
+                if (op == 9) {                            // ping → pong
+                    synchronized (lock) {
+                        wsWrite(out, 10, data);
+                    }
+                    continue;
+                }
+                if (op == 1) RemoteHub.onMessage(new String(data, StandardCharsets.UTF_8));
+            }
+        } finally {
+            RemoteHub.remove(sink);
+        }
+    }
+
+    private static void readFully(InputStream in, byte[] b) throws IOException {
+        int r = 0;
+        while (r < b.length) {
+            int n = in.read(b, r, b.length - r);
+            if (n < 0) throw new IOException("fim");
+            r += n;
+        }
+    }
+
+    private static void wsWrite(OutputStream out, int op, byte[] data) throws IOException {
+        int len = data.length;
+        out.write(0x80 | op);
+        if (len < 126) {
+            out.write(len);
+        } else if (len < 65536) {
+            out.write(126);
+            out.write(len >> 8);
+            out.write(len & 0xFF);
+        } else {
+            out.write(127);
+            for (int i = 7; i >= 0; i--) out.write((int) (((long) len >> (8 * i)) & 0xFF));
+        }
+        out.write(data);
         out.flush();
     }
 

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Setinha do Leve Mouse: branca com contorno escuro, ponta no canto de cima -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp"
+    android:height="32dp"
+    android:viewportWidth="32"
+    android:viewportHeight="32">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:strokeColor="#E6081236"
+        android:strokeWidth="1.6"
+        android:strokeLineJoin="round"
+        android:pathData="M2,2 L2,24 L8,18.5 L12.5,28 L16.5,26.2 L12,17 L20,17 Z" />
+</vector>

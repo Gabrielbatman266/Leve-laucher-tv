@@ -53,7 +53,7 @@ public class MainActivity extends Activity {
     // Ações do menu "Opções"
     private static final String A_SETTINGS = "settings", A_HOME = "home", A_STARS = "stars",
             A_ALPHA = "alpha", A_HIDDEN = "hidden", A_UPDATE = "update", A_ST = "smarttube",
-            A_NOW = "now_playing", A_MUSIC = "music";
+            A_NOW = "now_playing", A_MUSIC = "music", A_MOUSE = "mouse";
 
     private static final int REQ_HOME = 7;
 
@@ -230,6 +230,10 @@ public class MainActivity extends Activity {
         String ip = LeveMusicService.localIp();
         rows.add(new Row(T_ACTION, A_MUSIC, !musicOn ? getString(R.string.lm_off)
                 : ip.isEmpty() ? getString(R.string.lm_on_noip) : getString(R.string.lm_on, ip), false));
+        boolean mouseOn = RemoteHub.mouse != null;
+        rows.add(new Row(T_ACTION, A_MOUSE, !mouseOn ? getString(R.string.mouse_off)
+                : ip.isEmpty() ? getString(R.string.mouse_on_noip)
+                : getString(R.string.mouse_on, ip + ":" + LeveMusicService.PORT), false));
         rows.add(new Row(T_ACTION, A_STARS,
                 getString(prefs.getBoolean(KEY_STARS, true) ? R.string.stars_on : R.string.stars_off), false));
         if (!order.isEmpty()) {
@@ -345,6 +349,17 @@ public class MainActivity extends Activity {
                 break;
             case A_NOW:
                 tryStart(new Intent(this, NowPlayingActivity.class));
+                break;
+            case A_MOUSE:
+                if (!prefs.getBoolean(KEY_MUSIC, true)) {
+                    prefs.edit().putBoolean(KEY_MUSIC, true).apply();
+                    LeveMusicService.start(this);
+                    Toast.makeText(this, R.string.mouse_need_music, Toast.LENGTH_LONG).show();
+                }
+                Toast.makeText(this, R.string.mouse_enable_hint, Toast.LENGTH_LONG).show();
+                if (!tryStart(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))) {
+                    Toast.makeText(this, R.string.cant_open, Toast.LENGTH_SHORT).show();
+                }
                 break;
             case A_MUSIC:
                 boolean m = !prefs.getBoolean(KEY_MUSIC, true);

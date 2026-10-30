@@ -71,6 +71,20 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
 
+        <!-- Leve Mouse: cursor e teclado controlados pelo celular -->
+        <service
+            android:name=".LeveMouseService"
+            android:exported="true"
+            android:label="@string/mouse_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/leve_mouse" />
+        </service>
+
         <!-- Só é ligado por um instante para forçar o seletor de tela inicial -->
         <activity-alias
             android:name=".FakeHome"
