@@ -56,6 +56,14 @@
     <string name="mouse_enable_hint">Ligue o \"Leve Mouse\" nesta lista</string>
     <string name="mouse_need_music">Ligue \"Música do celular\" também: o controle usa a mesma conexão</string>
 
+    <string name="mouse_explain">Vai abrir as configurações de Acessibilidade da TV.\n\n1. Procure \"Leve Mouse\" na lista (às vezes fica em \"Serviços\" ou \"Apps baixados\").\n2. Ligue e confirme.\n3. Aperte Voltar para voltar ao Leve.\n\nIsso é normal: a tela do Leve some enquanto as configurações estão abertas.</string>
+    <string name="mouse_explain_on">O Leve Mouse já está ligado.\n\nNo celular, abra o endereço que aparece nesta linha (mesmo Wi-Fi), ou use o botão \"Controle da TV\" no Leve Music.\n\nQuer abrir as configurações de Acessibilidade mesmo assim (por exemplo, para desligar)?</string>
+    <string name="mouse_open_settings">Abrir configurações</string>
+    <string name="err_title">O Leve fechou sozinho</string>
+    <string name="err_msg">Tire uma foto desta tela e mande para o Claude, para ele corrigir.</string>
+    <string name="err_ok">Já mandei / apagar</string>
+    <string name="err_keep">Depois</string>
+
     <string name="upd_title">Atualizar</string>
     <string name="upd_checking">Procurando atualização…</string>
     <string name="upd_latest">Você já tem a versão mais nova (v%s)</string>

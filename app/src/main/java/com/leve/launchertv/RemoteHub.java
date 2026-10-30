@@ -109,6 +109,7 @@ final class RemoteHub {
                 return;
         }
         main.post(() -> {
+          try {
             LeveMouseService m = mouse;
             if (m == null) {
                 broadcastStatus();
@@ -144,6 +145,10 @@ final class RemoteHub {
                     m.enter();
                     break;
             }
+          } catch (Throwable err) {
+            LeveApp.log("RemoteHub." + t, err);
+            toast("Erro na TV: " + err.getClass().getSimpleName());
+          }
         });
     }
 

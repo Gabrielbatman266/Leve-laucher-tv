@@ -71,11 +71,17 @@ public class LeveMusicService extends Service {
 
     /** Liga o receptor (chamado pelo launcher). */
     static void start(Context ctx) {
+        if (instance != null) return; // já está rodando
         Intent i = new Intent(ctx, LeveMusicService.class);
         try {
-            if (Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i);
-            else ctx.startService(i);
-        } catch (Exception ignored) {
+            // startForegroundService só com uma tela do Leve aberta: chamado por trás
+            // (ex.: pelo Leve Mouse), o Android pode fechar o app se o aviso não aparecer a tempo.
+            if (Build.VERSION.SDK_INT >= 26 && ctx instanceof android.app.Activity) {
+                ctx.startForegroundService(i);
+            } else {
+                ctx.startService(i);
+            }
+        } catch (Throwable ignored) {
         }
     }
 
@@ -226,6 +232,11 @@ public class LeveMusicService extends Service {
             String rawPath = target.indexOf('?') >= 0 ? target.substring(0, target.indexOf('?')) : target;
             if (rawPath.equals("/ws") && "websocket".equalsIgnoreCase(h.get("upgrade"))) {
                 webSocket(c, in, out, h.get("sec-websocket-key"));
+                return;
+            }
+            if (rawPath.equals("/erro")) {
+                String e = LeveApp.read();
+                reply(out, 200, "text/plain", e == null ? "Nenhum erro registrado." : e);
                 return;
             }
             if (rawPath.equals("/") || rawPath.equals("/controle") || rawPath.equals("/remote")) {

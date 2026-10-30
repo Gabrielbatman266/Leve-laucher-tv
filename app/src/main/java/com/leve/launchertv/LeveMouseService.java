@@ -46,6 +46,14 @@ public class LeveMouseService extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
+        try {
+            connect();
+        } catch (Throwable t) {
+            LeveApp.log("LeveMouse.onServiceConnected", t);
+        }
+    }
+
+    private void connect() {
         RemoteHub.app = getApplicationContext();
         RemoteHub.mouse = this;
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
@@ -219,6 +227,14 @@ public class LeveMouseService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent e) {
+        try {
+            handleEvent(e);
+        } catch (Throwable t) {
+            LeveApp.log("LeveMouse.event", t);
+        }
+    }
+
+    private void handleEvent(AccessibilityEvent e) {
         int t = e.getEventType();
         if (t == AccessibilityEvent.TYPE_WINDOWS_CHANGED || t == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             h.removeCallbacks(checkKb);
@@ -231,7 +247,13 @@ public class LeveMouseService extends AccessibilityService {
         }
     }
 
-    private final Runnable checkKb = this::checkKeyboard;
+    private final Runnable checkKb = () -> {
+        try {
+            checkKeyboard();
+        } catch (Throwable t) {
+            LeveApp.log("LeveMouse.keyboard", t);
+        }
+    };
 
     private void checkKeyboard() {
         boolean imeVisible = false;

@@ -136,6 +136,26 @@ public class MainActivity extends Activity {
         reload(null);
         list.requestFocus();
         ui.postDelayed(musicWatch, 2000);
+        showLastError();
+    }
+
+    /** Se o Leve fechou sozinho, mostra o motivo uma vez (para mandar print ao Claude). */
+    private boolean errorShown;
+
+    private void showLastError() {
+        if (errorShown) return;
+        String err = LeveApp.read();
+        if (err == null || err.trim().isEmpty()) return;
+        errorShown = true;
+        String ip = LeveMusicService.localIp();
+        String tip = ip.isEmpty() ? "" : "\n\nNo celular também dá para ver em: " + ip + ":" + LeveMusicService.PORT + "/erro";
+        String shown = err.length() > 1800 ? err.substring(0, 1800) + "\n…" : err;
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.err_title)
+                .setMessage(getString(R.string.err_msg) + tip + "\n\n" + shown)
+                .setPositiveButton(R.string.err_ok, (d, w) -> LeveApp.clear())
+                .setNegativeButton(R.string.err_keep, null)
+                .show();
     }
 
     @Override
@@ -354,12 +374,17 @@ public class MainActivity extends Activity {
                 if (!prefs.getBoolean(KEY_MUSIC, true)) {
                     prefs.edit().putBoolean(KEY_MUSIC, true).apply();
                     LeveMusicService.start(this);
-                    Toast.makeText(this, R.string.mouse_need_music, Toast.LENGTH_LONG).show();
                 }
-                Toast.makeText(this, R.string.mouse_enable_hint, Toast.LENGTH_LONG).show();
-                if (!tryStart(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))) {
-                    Toast.makeText(this, R.string.cant_open, Toast.LENGTH_SHORT).show();
-                }
+                new AlertDialog.Builder(this)
+                        .setTitle(R.string.mouse_name)
+                        .setMessage(RemoteHub.mouse != null ? R.string.mouse_explain_on : R.string.mouse_explain)
+                        .setPositiveButton(R.string.mouse_open_settings, (d, w) -> {
+                            if (!tryStart(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))) {
+                                Toast.makeText(this, R.string.cant_open, Toast.LENGTH_SHORT).show();
+                            }
+                        })
+                        .setNegativeButton(R.string.upd_later, null)
+                        .show();
                 break;
             case A_MUSIC:
                 boolean m = !prefs.getBoolean(KEY_MUSIC, true);

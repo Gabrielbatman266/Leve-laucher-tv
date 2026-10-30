@@ -29,6 +29,7 @@
     </queries>
 
     <application
+        android:name=".LeveApp"
         android:allowBackup="true"
         android:banner="@drawable/banner"
         android:icon="@drawable/icon"
