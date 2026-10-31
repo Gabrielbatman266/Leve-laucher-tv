@@ -453,6 +453,7 @@ public class LeveMouseService extends AccessibilityService {
 
     void openSettings() {
         try {
+            HomeGuard.pause();
             startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         } catch (Exception e) {
             RemoteHub.toast("Não deu para abrir as configurações");
@@ -490,7 +491,8 @@ public class LeveMouseService extends AccessibilityService {
         if (e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             try {
                 CharSequence pkg = e.getPackageName();
-                if (pkg != null && HomeGuard.isOtherHome(this, pkg.toString())) {
+                CharSequence cls = e.getClassName();
+                if (pkg != null && HomeGuard.isOtherHome(this, pkg.toString(), cls == null ? null : cls.toString())) {
                     HomeGuard.bringLeve(this, pkg.toString());
                 }
             } catch (Throwable t) {

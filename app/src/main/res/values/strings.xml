@@ -123,6 +123,15 @@
     <string name="net_freed">Memória liberada: %1$d MB</string>
     <string name="net_no_youcine">YouCine não encontrado</string>
 
+    <string name="sc_howto_keyboard">Vá em: Preferências do dispositivo (ou Sistema) → Teclado → Gerenciar teclados, e ligue o Leve Teclado TV</string>
+    <string name="sc_howto_access">Vá em: Preferências do dispositivo (ou Sistema) → Acessibilidade → Leve Mouse</string>
+    <string name="sc_howto_wifi">Vá em: Rede e Internet → Wi-Fi</string>
+    <string name="sc_howto_home">Vá em: Apps → Apps padrão → Tela inicial</string>
+
+    <string name="ime_choose">Escolher teclado</string>
+    <string name="ime_open_settings">Configurações de teclado</string>
+    <string name="ime_choose_msg">\"Escolher teclado\" abre a lista de teclados da TV.\n\nSe a lista não aparecer neste box, use \"Configurações de teclado\" e escolha o Leve Teclado TV (ou o Leve Teclado) como teclado atual.</string>
+
     <string name="upd_title">Atualizar</string>
     <string name="upd_checking">Procurando atualização…</string>
     <string name="upd_latest">Você já tem a versão mais nova (v%s)</string>

@@ -350,6 +350,7 @@ public class MainActivity extends Activity {
         }
         switch (row.id) {
             case A_SETTINGS:
+                HomeGuard.pause();
                 tryStart(new Intent(Settings.ACTION_SETTINGS));
                 break;
             case A_HOME:
@@ -402,16 +403,23 @@ public class MainActivity extends Activity {
                             .setTitle(R.string.ime_name)
                             .setMessage(R.string.ime_explain)
                             .setPositiveButton(R.string.mouse_open_settings, (d, w) -> {
-                                if (!tryStart(new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))) {
-                                    Toast.makeText(this, R.string.cant_open, Toast.LENGTH_SHORT).show();
-                                }
+                                Shortcuts.open(this, Shortcuts.KEYBOARD);
                             })
                             .setNegativeButton(R.string.upd_later, null)
                             .show();
                 } else {
-                    android.view.inputmethod.InputMethodManager imm =
-                            (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-                    if (imm != null) imm.showInputMethodPicker();
+                    new AlertDialog.Builder(this)
+                            .setTitle(R.string.ime_name)
+                            .setMessage(R.string.ime_choose_msg)
+                            .setPositiveButton(R.string.ime_choose, (d, w) -> {
+                                android.view.inputmethod.InputMethodManager imm =
+                                        (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                                if (imm != null) imm.showInputMethodPicker();
+                            })
+                            .setNeutralButton(R.string.ime_open_settings,
+                                    (d, w) -> Shortcuts.open(this, Shortcuts.KEYBOARD))
+                            .setNegativeButton(R.string.upd_later, null)
+                            .show();
                 }
                 break;
             case A_MOUSE:
@@ -423,9 +431,7 @@ public class MainActivity extends Activity {
                         .setTitle(R.string.mouse_name)
                         .setMessage(RemoteHub.mouse != null ? R.string.mouse_explain_on : R.string.mouse_explain)
                         .setPositiveButton(R.string.mouse_open_settings, (d, w) -> {
-                            if (!tryStart(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))) {
-                                Toast.makeText(this, R.string.cant_open, Toast.LENGTH_SHORT).show();
-                            }
+                            Shortcuts.open(this, Shortcuts.ACCESSIBILITY);
                         })
                         .setNegativeButton(R.string.upd_later, null)
                         .show();
@@ -500,6 +506,7 @@ public class MainActivity extends Activity {
                         writeList(KEY_HIDDEN, h);
                         reload(row.id);
                     } else {
+                        HomeGuard.pause();
                         tryStart(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                                 Uri.parse("package:" + row.id)));
                     }
@@ -584,9 +591,7 @@ public class MainActivity extends Activity {
                 .setTitle(R.string.mouse_name)
                 .setMessage(R.string.guard_explain)
                 .setPositiveButton(R.string.mouse_open_settings, (d, w) -> {
-                    if (!tryStart(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))) {
-                        Toast.makeText(this, R.string.cant_open, Toast.LENGTH_SHORT).show();
-                    }
+                    Shortcuts.open(this, Shortcuts.ACCESSIBILITY);
                 })
                 .setNegativeButton(R.string.upd_later, null)
                 .show();
@@ -647,6 +652,7 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) {
             }
         }
+        HomeGuard.pause();
         if (tryStart(new Intent(Settings.ACTION_HOME_SETTINGS))) return;
         if (Build.VERSION.SDK_INT >= 24
                 && tryStart(new Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))) return;

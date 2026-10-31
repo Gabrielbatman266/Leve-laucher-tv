@@ -17,8 +17,19 @@ import java.util.Set;
 final class HomeGuard {
 
     static final String KEY = "force_home";
-    private static Set<String> otherHomes;
+    private static Set<String> otherHomes;        // pacotes de outros launchers
+    private static Set<String> otherHomeClasses;  // as telas iniciais exatas desses launchers
     private static long lastBring;
+    private static long pausedUntil;
+
+    /** Pausa o guarda por 3 minutos (ao abrir configurações pelo Leve). */
+    static void pause() {
+        pausedUntil = SystemClock.elapsedRealtime() + 3 * 60 * 1000;
+    }
+
+    static boolean paused() {
+        return SystemClock.elapsedRealtime() < pausedUntil;
+    }
 
     private HomeGuard() {
     }
@@ -33,31 +44,52 @@ final class HomeGuard {
 
     /** O app que apareceu é outro launcher (o de fábrica)? */
     static boolean isOtherHome(Context c, String pkg) {
-        if (pkg.equals(c.getPackageName()) || !enabled(c)) return false;
-        if (otherHomes == null) otherHomes = listHomes(c);
-        return otherHomes.contains(pkg);
+        return isOtherHome(c, pkg, null);
+    }
+
+    /**
+     * Só conta como "launcher de fábrica" se for a TELA INICIAL dele
+     * (não as configurações nem outras telas do mesmo app).
+     */
+    static boolean isOtherHome(Context c, String pkg, String cls) {
+        if (pkg.equals(c.getPackageName()) || !enabled(c) || paused()) return false;
+        if (otherHomes == null) listHomes(c);
+        if (!otherHomes.contains(pkg)) return false;
+        if (cls == null || cls.isEmpty() || cls.startsWith("android.")) return true;
+        return otherHomeClasses.contains(cls) || otherHomeClasses.contains(pkg + cls);
     }
 
     /** Recalcula a lista de launchers (quando apps são instalados/removidos). */
     static void forget() {
         otherHomes = null;
+        otherHomeClasses = null;
     }
 
-    private static Set<String> listHomes(Context c) {
-        Set<String> out = new HashSet<>();
+    private static void listHomes(Context c) {
+        Set<String> pk = new HashSet<>();
+        Set<String> cl = new HashSet<>();
         try {
             Intent i = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
             for (ResolveInfo ri : c.getPackageManager().queryIntentActivities(i, PackageManager.MATCH_ALL)) {
                 String p = ri.activityInfo.packageName;
-                // "android" é a tela de escolher launcher; nunca atrapalhar ela
-                if (!p.equals(c.getPackageName()) && !p.equals("android")
-                        && !p.equals("com.android.settings") && !p.contains("provision")) {
-                    out.add(p);
+                String lower = p.toLowerCase(java.util.Locale.ROOT);
+                String name = ri.activityInfo.name == null ? "" : ri.activityInfo.name;
+                // Fora: o seletor do sistema, as Configurações (têm uma "tela inicial reserva"),
+                // assistentes de configuração e qualquer tela inicial de prioridade negativa.
+                if (p.equals(c.getPackageName()) || p.equals("android")
+                        || lower.contains("settings") || lower.contains("provision")
+                        || lower.contains("setupwizard") || name.toLowerCase(java.util.Locale.ROOT).contains("fallback")
+                        || ri.priority < 0) {
+                    continue;
                 }
+                pk.add(p);
+                cl.add(name);
+                if (ri.activityInfo.targetActivity != null) cl.add(ri.activityInfo.targetActivity);
             }
         } catch (Exception ignored) {
         }
-        return out;
+        otherHomeClasses = cl;
+        otherHomes = pk;
     }
 
     /** Abre o Leve (no máximo uma vez a cada 1,5 s, para nunca ficar em loop). */

@@ -61,11 +61,7 @@ public class NetActivity extends Activity {
 
         findViewById(R.id.b_test).setOnClickListener(v -> runTest());
         findViewById(R.id.b_wifi).setOnClickListener(v -> {
-            try {
-                startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
-            } catch (Exception e) {
-                Toast.makeText(this, R.string.cant_open, Toast.LENGTH_SHORT).show();
-            }
+            Shortcuts.open(this, Shortcuts.WIFI);
         });
         bTurbo.setOnClickListener(v -> {
             boolean on = !LeveMusicService.turboOn(this);
