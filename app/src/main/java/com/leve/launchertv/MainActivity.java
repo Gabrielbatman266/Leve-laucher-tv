@@ -53,7 +53,8 @@ public class MainActivity extends Activity {
     // Ações do menu "Opções"
     private static final String A_SETTINGS = "settings", A_HOME = "home", A_STARS = "stars",
             A_ALPHA = "alpha", A_HIDDEN = "hidden", A_UPDATE = "update", A_ST = "smarttube",
-            A_NOW = "now_playing", A_MUSIC = "music", A_MOUSE = "mouse", A_IME = "ime";
+            A_NOW = "now_playing", A_MUSIC = "music", A_MOUSE = "mouse", A_IME = "ime",
+            A_GUARD = "guard";
 
     private static final int REQ_HOME = 7;
 
@@ -182,6 +183,7 @@ public class MainActivity extends Activity {
 
         if (!apps.keySet().equals(lastPackages)) {
             icons.clear();
+            HomeGuard.forget();
             lastPackages = new HashSet<>(apps.keySet());
         }
         firstRun(apps);
@@ -246,6 +248,9 @@ public class MainActivity extends Activity {
         rows.add(new Row(T_ACTION, A_SETTINGS, getString(R.string.settings), false));
         rows.add(new Row(T_ACTION, A_HOME,
                 getString(isDefaultHome() ? R.string.home_yes : R.string.home_no), false));
+        boolean guard = HomeGuard.enabled(this);
+        rows.add(new Row(T_ACTION, A_GUARD, getString(!guard ? R.string.guard_off
+                : RemoteHub.mouse == null ? R.string.guard_need_mouse : R.string.guard_on), false));
         boolean musicOn = prefs.getBoolean(KEY_MUSIC, true);
         String ip = LeveMusicService.localIp();
         rows.add(new Row(T_ACTION, A_MUSIC, !musicOn ? getString(R.string.lm_off)
@@ -372,6 +377,20 @@ public class MainActivity extends Activity {
                 break;
             case A_NOW:
                 tryStart(new Intent(this, NowPlayingActivity.class));
+                break;
+            case A_GUARD:
+                boolean g = HomeGuard.enabled(this);
+                if (g && RemoteHub.mouse == null) {
+                    explainGuard();
+                } else if (g) {
+                    HomeGuard.setEnabled(this, false);
+                    Toast.makeText(this, R.string.guard_turned_off, Toast.LENGTH_LONG).show();
+                    reload(A_GUARD);
+                } else {
+                    HomeGuard.setEnabled(this, true);
+                    if (RemoteHub.mouse == null) explainGuard();
+                    reload(A_GUARD);
+                }
                 break;
             case A_IME:
                 if (imeState() == 0) {
@@ -554,6 +573,19 @@ public class MainActivity extends Activity {
             return true;
         }
         return super.dispatchKeyEvent(e);
+    }
+
+    private void explainGuard() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.mouse_name)
+                .setMessage(R.string.guard_explain)
+                .setPositiveButton(R.string.mouse_open_settings, (d, w) -> {
+                    if (!tryStart(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))) {
+                        Toast.makeText(this, R.string.cant_open, Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton(R.string.upd_later, null)
+                .show();
     }
 
     /** 0 = Leve Teclado desligado, 1 = ligado mas não escolhido, 2 = é o teclado atual. */

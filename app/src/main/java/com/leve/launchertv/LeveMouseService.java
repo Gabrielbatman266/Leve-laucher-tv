@@ -78,6 +78,10 @@ public class LeveMouseService extends AccessibilityService {
         addCursor();
         RemoteHub.broadcastStatus();
         LeveMusicService.start(this); // o servidor do controle mora junto do Leve Music TV
+        // Acabou de ligar a TV: já abre o Leve no lugar do launcher de fábrica
+        if (HomeGuard.enabled(this) && SystemClock.elapsedRealtime() < 3 * 60 * 1000) {
+            h.postDelayed(() -> HomeGuard.bringLeve(this, "boot"), 1500);
+        }
     }
 
     @Override
@@ -481,6 +485,18 @@ public class LeveMouseService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent e) {
+        // Guarda da tela inicial: se o launcher de fábrica aparecer, o Leve volta para a frente.
+        // (só compara o nome do app — custo quase zero)
+        if (e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            try {
+                CharSequence pkg = e.getPackageName();
+                if (pkg != null && HomeGuard.isOtherHome(this, pkg.toString())) {
+                    HomeGuard.bringLeve(this, pkg.toString());
+                }
+            } catch (Throwable t) {
+                LeveApp.log("LeveMouse.homeGuard", t);
+            }
+        }
         // Sem celular conectado não há por que gastar nada (ex.: vendo filme no YouCine)
         if (!RemoteHub.hasClients()) {
             if (kbShown) kbShown = false;
