@@ -179,7 +179,7 @@ final class NetTools {
         for (String u : urls) {
             HttpURLConnection c = null;
             try {
-                c = (HttpURLConnection) new URL(u).openConnection();
+                c = ShareLink.open(u);
                 c.setConnectTimeout(6000);
                 c.setReadTimeout(6000);
                 c.setRequestProperty("Accept-Encoding", "identity");

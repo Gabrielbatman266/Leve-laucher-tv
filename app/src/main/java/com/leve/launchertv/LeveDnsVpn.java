@@ -56,6 +56,27 @@ public class LeveDnsVpn extends VpnService {
         return c.getSharedPreferences("leve", MODE_PRIVATE).getBoolean(PREF_ON, false);
     }
 
+    /** O VPN local precisa rodar para o DNS rápido OU para usar o Leve Share. */
+    static boolean needed(Context c) {
+        return enabled(c) || ShareLink.active(c);
+    }
+
+    /** Reinicia para aplicar mudanças (DNS rápido / Leve Share). */
+    static void restart(Context c) {
+        LeveDnsVpn v = instance;
+        if (v != null) v.shutdown();
+        if (needed(c)) {
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> start(c), 700);
+        }
+    }
+
+    private int[] ports;
+    private boolean shareMode;
+
+    boolean isShareMode() {
+        return shareMode;
+    }
+
     static void start(Context c) {
         try {
             if (VpnService.prepare(c) != null) return; // ainda sem permissão do usuário
@@ -77,13 +98,21 @@ public class LeveDnsVpn extends VpnService {
         if (running) return START_STICKY;
         try {
             goForeground();
-            String list = getSharedPreferences("leve", MODE_PRIVATE).getString(PREF_SERVERS, DEFAULT_SERVERS);
+            shareMode = ShareLink.active(this);
+            String list = shareMode
+                    ? ShareLink.HOST + ":" + ShareLink.DNS_PORT
+                    : getSharedPreferences("leve", MODE_PRIVATE).getString(PREF_SERVERS, DEFAULT_SERVERS);
             String[] parts = list.split(",");
             servers = new InetAddress[parts.length];
-            for (int i = 0; i < parts.length; i++) servers[i] = InetAddress.getByName(parts[i].trim());
+            ports = new int[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                String[] hp = parts[i].trim().split(":");
+                servers[i] = InetAddress.getByName(hp[0]);
+                ports[i] = hp.length > 1 ? Integer.parseInt(hp[1]) : 53;
+            }
 
             Builder b = new Builder()
-                    .setSession("Leve DNS rápido")
+                    .setSession("Leve DNS / Share")
                     .addAddress(VPN_ADDR, 32)
                     .addDnsServer(VPN_DNS)
                     .addRoute(VPN_DNS, 32)
@@ -92,7 +121,13 @@ public class LeveDnsVpn extends VpnService {
                 b.addDisallowedApplication(getPackageName()); // o próprio Leve fala direto com a internet
             } catch (Exception ignored) {
             }
-            if (Build.VERSION.SDK_INT >= 29) b.setMetered(false);
+            if (Build.VERSION.SDK_INT >= 29) {
+                b.setMetered(false);
+                if (shareMode) {
+                    // todos os apps passam a usar o proxy do celular (Leve Share)
+                    b.setHttpProxy(android.net.ProxyInfo.buildDirectProxy(ShareLink.HOST, ShareLink.PROXY_PORT));
+                }
+            }
             tun = b.establish();
             if (tun == null) {
                 stopSelf();
@@ -206,11 +241,12 @@ public class LeveDnsVpn extends VpnService {
 
     private byte[] ask(byte[] query) {
         for (int round = 0; round < 2; round++) {
-            for (InetAddress s : servers) {
+            for (int si = 0; si < servers.length; si++) {
+                InetAddress s = servers[si];
                 try (DatagramSocket sock = new DatagramSocket()) {
                     protect(sock); // sai direto pela rede, não volta para o VPN
-                    sock.setSoTimeout(round == 0 ? 1200 : 2500);
-                    sock.send(new DatagramPacket(query, query.length, s, 53));
+                    sock.setSoTimeout(round == 0 ? 1500 : 3000);
+                    sock.send(new DatagramPacket(query, query.length, s, ports[si]));
                     byte[] buf = new byte[4096];
                     DatagramPacket r = new DatagramPacket(buf, buf.length);
                     sock.receive(r);

@@ -82,6 +82,7 @@
             <TextView android:id="@+id/b_youcine" style="@style/NetButton" android:text="Abrir YouCine turbo" />
             <TextView android:id="@+id/b_turbo" style="@style/NetButton" />
             <TextView android:id="@+id/b_dns" style="@style/NetButton" />
+            <TextView android:id="@+id/b_share" style="@style/NetButton" />
             <TextView android:id="@+id/b_test" style="@style/NetButton" android:text="Testar de novo" />
             <TextView android:id="@+id/b_wifi" style="@style/NetButton" android:text="Configurações de Wi-Fi" />
 

@@ -38,12 +38,16 @@ jobs:
         run: gradle assembleRelease --no-daemon
 
       - name: Renomear APK
-        run: cp app/build/outputs/apk/release/app-release.apk LeveLauncherTV.apk
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk LeveLauncherTV.apk
+          cp share/build/outputs/apk/release/share-release.apk LeveShare.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: LeveLauncherTV
-          path: LeveLauncherTV.apk
+          path: |
+            LeveLauncherTV.apk
+            LeveShare.apk
 
       - name: Publicar Release (link direto do APK)
         if: github.ref == 'refs/heads/main'
@@ -51,5 +55,7 @@ jobs:
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: Leve Launcher TV ${{ github.run_number }}
-          files: LeveLauncherTV.apk
+          files: |
+            LeveLauncherTV.apk
+            LeveShare.apk
           make_latest: true

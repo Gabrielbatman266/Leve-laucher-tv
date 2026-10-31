@@ -261,7 +261,7 @@ final class Updater {
     }
 
     private static HttpURLConnection open(String url) throws Exception {
-        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+        HttpURLConnection c = ShareLink.open(url);
         c.setInstanceFollowRedirects(true);
         c.setConnectTimeout(15000);
         c.setReadTimeout(30000);
@@ -272,7 +272,7 @@ final class Updater {
             if (code < 300 || code >= 400) break;
             String next = c.getHeaderField("Location");
             c.disconnect();
-            c = (HttpURLConnection) new URL(next).openConnection();
+            c = ShareLink.open(next);
             c.setConnectTimeout(15000);
             c.setReadTimeout(30000);
             c.setRequestProperty("User-Agent", "LeveLauncherTV");

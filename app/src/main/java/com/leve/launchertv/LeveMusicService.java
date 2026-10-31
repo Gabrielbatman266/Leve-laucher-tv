@@ -131,11 +131,48 @@ public class LeveMusicService extends Service {
         super.onCreate();
         instance = this;
         RemoteHub.app = getApplicationContext();
+        ShareLink.on(this);
         goForeground();
         running = true;
         pool.execute(this::serve);
         applyTurbo();
-        if (LeveDnsVpn.enabled(this)) LeveDnsVpn.start(this);
+        if (LeveDnsVpn.needed(this)) LeveDnsVpn.start(this);
+        watchWifi();
+    }
+
+    /**
+     * Quando a TV troca de Wi-Fi (casa ↔ Leve Share), liga/desliga o modo do celular sozinho,
+     * para os apps nunca ficarem presos tentando usar um celular que não está lá.
+     */
+    private void watchWifi() {
+        if (Build.VERSION.SDK_INT < 24) return;
+        try {
+            android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+            android.net.NetworkRequest req = new android.net.NetworkRequest.Builder()
+                    .addTransportType(android.net.NetworkCapabilities.TRANSPORT_WIFI).build();
+            cm.registerNetworkCallback(req, new android.net.ConnectivityManager.NetworkCallback() {
+                @Override public void onAvailable(android.net.Network n) { recheck(); }
+                @Override public void onLost(android.net.Network n) { recheck(); }
+            });
+        } catch (Throwable t) {
+            LeveApp.log("watchWifi", t);
+        }
+    }
+
+    private final Runnable vpnCheck = () -> {
+        try {
+            if (!ShareLink.on(this)) return;
+            boolean want = ShareLink.active(this);
+            LeveDnsVpn v = LeveDnsVpn.instance;
+            if (v == null ? LeveDnsVpn.needed(this) : v.isShareMode() != want) LeveDnsVpn.restart(this);
+        } catch (Throwable t) {
+            LeveApp.log("vpnCheck", t);
+        }
+    };
+
+    private void recheck() {
+        main.removeCallbacks(vpnCheck);
+        main.postDelayed(vpnCheck, 2500); // espera o DHCP da nova rede
     }
 
     // ---------- Wi-Fi turbo ----------
@@ -281,6 +318,10 @@ public class LeveMusicService extends Service {
                 else replyBytes(out, 200, "image/png", png);
                 return;
             }
+            if (rawPath.equals("/share")) {
+                serveShareApk(out);
+                return;
+            }
             if (rawPath.equals("/erro")) {
                 String e = LeveApp.read();
                 reply(out, 200, "text/plain", e == null ? "Nenhum erro registrado." : e);
@@ -414,6 +455,42 @@ public class LeveMusicService extends Service {
                 + "Connection: close\r\n\r\n";
         out.write(head.getBytes(StandardCharsets.US_ASCII));
         out.write(b);
+        out.flush();
+    }
+
+    /** Entrega o instalador do Leve Share para o celular (baixa do GitHub na 1ª vez). */
+    private void serveShareApk(OutputStream out) throws IOException {
+        java.io.File f = new java.io.File(getCacheDir(), "LeveShare.apk");
+        if (!f.exists() || System.currentTimeMillis() - f.lastModified() > 6L * 3600 * 1000) {
+            java.io.File tmp = new java.io.File(getCacheDir(), "LeveShare.part");
+            HttpURLConnection c = ShareLink.open(ShareLink.APK);
+            c.setInstanceFollowRedirects(true);
+            c.setConnectTimeout(15000);
+            c.setReadTimeout(30000);
+            try (InputStream in = c.getInputStream(); java.io.FileOutputStream fo = new java.io.FileOutputStream(tmp)) {
+                byte[] b = new byte[32 * 1024];
+                int n;
+                while ((n = in.read(b)) > 0) fo.write(b, 0, n);
+            } catch (IOException e) {
+                reply(out, 502, "text/plain", "Não deu para baixar o Leve Share agora. Tente de novo.");
+                return;
+            } finally {
+                c.disconnect();
+            }
+            if (!tmp.renameTo(f)) {
+                reply(out, 500, "text/plain", "Erro ao salvar");
+                return;
+            }
+        }
+        String head = "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.android.package-archive\r\n"
+                + "Content-Disposition: attachment; filename=\"LeveShare.apk\"\r\n"
+                + "Content-Length: " + f.length() + "\r\nConnection: close\r\n\r\n";
+        out.write(head.getBytes(StandardCharsets.US_ASCII));
+        try (InputStream in = new java.io.FileInputStream(f)) {
+            byte[] b = new byte[32 * 1024];
+            int n;
+            while ((n = in.read(b)) > 0) out.write(b, 0, n);
+        }
         out.flush();
     }
 
@@ -663,7 +740,7 @@ public class LeveMusicService extends Service {
     }
 
     private static HttpURLConnection upstream(Track t, long from, long to) throws IOException {
-        HttpURLConnection c = (HttpURLConnection) new URL(t.url).openConnection();
+        HttpURLConnection c = ShareLink.open(t.url);
         c.setConnectTimeout(15000);
         c.setReadTimeout(30000);
         c.setInstanceFollowRedirects(true);

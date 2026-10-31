@@ -33,7 +33,8 @@ public class NetActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private SharedPreferences prefs;
     private StarsView stars;
-    private TextView verdict, dSignal, dBand, dRouter, dDns, dSpeed, tips, bTurbo, bDns, bNote;
+    private TextView verdict, dSignal, dBand, dRouter, dDns, dSpeed, tips, bTurbo, bDns, bNote, bShare;
+    private static final int REQ_SHARE = 32;
     private volatile boolean testing;
 
     // resultados
@@ -58,6 +59,8 @@ public class NetActivity extends Activity {
         bTurbo = findViewById(R.id.b_turbo);
         bDns = findViewById(R.id.b_dns);
         bNote = findViewById(R.id.b_note);
+        bShare = findViewById(R.id.b_share);
+        bShare.setOnClickListener(v -> shareDialog());
 
         findViewById(R.id.b_test).setOnClickListener(v -> runTest());
         findViewById(R.id.b_wifi).setOnClickListener(v -> {
@@ -91,6 +94,8 @@ public class NetActivity extends Activity {
 
     private void updateButtons() {
         bTurbo.setText(LeveMusicService.turboOn(this) ? R.string.net_turbo_on : R.string.net_turbo_off);
+        bShare.setText(!ShareLink.on(this) ? getString(R.string.share_off)
+                : ShareLink.active(this) ? getString(R.string.share_on) : getString(R.string.share_waiting));
         boolean dnsOn = LeveDnsVpn.enabled(this);
         bDns.setText(dnsOn ? getString(R.string.net_dns_on,
                 prefs.getString(LeveDnsVpn.PREF_SERVERS, LeveDnsVpn.DEFAULT_SERVERS).replace(",", ", "))
@@ -258,7 +263,7 @@ public class NetActivity extends Activity {
     private void toggleDns() {
         if (LeveDnsVpn.enabled(this)) {
             prefs.edit().putBoolean(LeveDnsVpn.PREF_ON, false).apply();
-            LeveDnsVpn.stop(this);
+            LeveDnsVpn.restart(this);
             updateButtons();
             return;
         }
@@ -282,6 +287,11 @@ public class NetActivity extends Activity {
 
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
+        if (req == REQ_SHARE) {
+            if (res == RESULT_OK) enableShare();
+            else Toast.makeText(this, R.string.net_dns_denied, Toast.LENGTH_LONG).show();
+            return;
+        }
         if (req == REQ_VPN) {
             if (res == RESULT_OK) enableDns();
             else Toast.makeText(this, R.string.net_dns_denied, Toast.LENGTH_LONG).show();
@@ -290,8 +300,55 @@ public class NetActivity extends Activity {
 
     private void enableDns() {
         prefs.edit().putBoolean(LeveDnsVpn.PREF_ON, true).apply();
-        LeveDnsVpn.start(this);
+        LeveDnsVpn.restart(this);
         Toast.makeText(this, R.string.net_dns_toast_on, Toast.LENGTH_LONG).show();
+        ui.postDelayed(this::updateButtons, 800);
+    }
+
+    // ---------- Internet pelo Leve Share (celular antigo) ----------
+
+    private void shareDialog() {
+        String ip = LeveMusicService.localIp();
+        String link = ip.isEmpty() ? ShareLink.APK : ip + ":" + LeveMusicService.PORT + "/share";
+        boolean on = ShareLink.on(this);
+        new android.app.AlertDialog.Builder(this)
+                .setTitle(R.string.share_title)
+                .setMessage(getString(R.string.share_steps, link))
+                .setPositiveButton(on ? R.string.share_turn_off : R.string.share_turn_on, (d, w) -> {
+                    if (on) {
+                        ShareLink.set(this, false);
+                        LeveDnsVpn.restart(this);
+                        Toast.makeText(this, R.string.share_toast_off, Toast.LENGTH_LONG).show();
+                        updateButtons();
+                    } else {
+                        askShare();
+                    }
+                })
+                .setNeutralButton(R.string.net_wifi_btn, (d, w) -> Shortcuts.open(this, Shortcuts.WIFI))
+                .setNegativeButton(R.string.upd_later, null)
+                .show();
+    }
+
+    private void askShare() {
+        try {
+            Intent ask = VpnService.prepare(this);
+            if (ask != null) {
+                Toast.makeText(this, R.string.share_allow, Toast.LENGTH_LONG).show();
+                startActivityForResult(ask, REQ_SHARE);
+                return;
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, R.string.net_dns_unsupported, Toast.LENGTH_LONG).show();
+            return;
+        }
+        enableShare();
+    }
+
+    private void enableShare() {
+        ShareLink.set(this, true);
+        LeveDnsVpn.restart(this);
+        Toast.makeText(this, android.os.Build.VERSION.SDK_INT >= 29
+                ? R.string.share_toast_on : R.string.share_toast_on_old, Toast.LENGTH_LONG).show();
         ui.postDelayed(this::updateButtons, 800);
     }
 

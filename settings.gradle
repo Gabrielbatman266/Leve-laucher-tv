@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = 'LeveLauncherTV'
-include ':app'
+include ':app', ':share'

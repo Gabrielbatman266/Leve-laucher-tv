@@ -158,7 +158,7 @@ public class NowPlayingActivity extends Activity {
         if (url == null || !url.startsWith("http")) return;
         new Thread(() -> {
             try {
-                HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+                HttpURLConnection c = ShareLink.open(url);
                 c.setConnectTimeout(8000);
                 c.setReadTimeout(8000);
                 BitmapFactory.Options o = new BitmapFactory.Options();
