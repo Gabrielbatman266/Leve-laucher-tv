@@ -67,10 +67,14 @@
     <string name="ime_name">Leve Teclado</string>
     <string name="ime_bar_phone">⌨  Digite pelo celular</string>
     <string name="ime_bar_nophone">⌨  Leve Teclado: digite pelo celular (%1$s)  ·  OK para trocar de teclado</string>
-    <string name="ime_off">Ativar setas em qualquer app (Leve Teclado)</string>
-    <string name="ime_enabled">Leve Teclado: escolher como teclado da TV</string>
-    <string name="ime_on">Leve Teclado: ativo  (trocar)</string>
-    <string name="ime_explain">Com o Leve Teclado, as setas, o OK e o Voltar do celular funcionam em qualquer app, até dentro do player do YouCine. E o que você digita no celular vai direto para o campo.\n\n1. Na lista que vai abrir, ligue o \"Leve Teclado\". O Android mostra um aviso padrão de teclado; ele só recebe o que vem do seu celular na sua rede.\n2. Volte ao Leve e entre nesta opção de novo para escolher o Leve Teclado.\n\nSem o celular conectado, quando um campo pedir teclado, aperte OK no controle para trocar para o teclado normal.</string>
+    <string name="ime_off">Ativar os teclados Leve (setas em qualquer app)</string>
+    <string name="ime_enabled">Teclados Leve: escolher o teclado da TV</string>
+    <string name="ime_on">Teclado: Leve Teclado (pelo celular)  ·  trocar</string>
+    <string name="ime_tv_on">Teclado: Leve Teclado TV  ·  trocar</string>
+    <string name="ime_tv_name">Leve Teclado TV</string>
+    <string name="kbtv_hint">Segure OK numa vogal para acento  ·  ▲ na 1ª linha fecha  ·  celular: %1$s</string>
+    <string name="kbtv_hint_phone">Celular conectado: dá para digitar por ele também</string>
+    <string name="ime_explain">São dois teclados (dá para trocar quando quiser):\n• Leve Teclado TV: teclado na tela, rápido, para usar com o controle (com sugestões e acentos).\n• Leve Teclado: sem teclado na tela, você digita pelo celular.\n\nCom qualquer um dos dois, as setas, o OK e o Voltar do celular funcionam em qualquer app, até dentro do player do YouCine. E o que você digita no celular vai direto para o campo.\n\n1. Na lista que vai abrir, ligue o \"Leve Teclado\". O Android mostra um aviso padrão de teclado; ele só recebe o que vem do seu celular na sua rede.\n2. Volte ao Leve e entre nesta opção de novo para escolher qual dos dois usar.\n\nSem o celular conectado, quando um campo pedir teclado, aperte OK no controle para trocar para o teclado normal.</string>
 
     <string name="guard_on">Manter o Leve como tela inicial (mesmo reiniciando): ligado ✓</string>
     <string name="guard_need_mouse">Manter o Leve ao reiniciar: falta ligar o Leve Mouse</string>

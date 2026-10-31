@@ -26,8 +26,8 @@ public class LeveKeyboard extends InputMethodService {
 
     private final Handler h = new Handler(Looper.getMainLooper());
     private TextView bar;
-    private EditorInfo editor;
-    private boolean inputShown;
+    protected EditorInfo editor;
+    protected boolean inputShown;
 
     @Override
     public void onCreate() {

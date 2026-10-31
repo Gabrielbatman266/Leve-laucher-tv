@@ -260,8 +260,8 @@ public class MainActivity extends Activity {
                 : ip.isEmpty() ? getString(R.string.mouse_on_noip)
                 : getString(R.string.mouse_on, ip + ":" + LeveMusicService.PORT), false));
         int ime = imeState();
-        rows.add(new Row(T_ACTION, A_IME, getString(ime == 2 ? R.string.ime_on
-                : ime == 1 ? R.string.ime_enabled : R.string.ime_off), false));
+        rows.add(new Row(T_ACTION, A_IME, getString(ime == 3 ? R.string.ime_tv_on
+                : ime == 2 ? R.string.ime_on : ime == 1 ? R.string.ime_enabled : R.string.ime_off), false));
         rows.add(new Row(T_ACTION, A_STARS,
                 getString(prefs.getBoolean(KEY_STARS, true) ? R.string.stars_on : R.string.stars_off), false));
         if (!order.isEmpty()) {
@@ -591,10 +591,10 @@ public class MainActivity extends Activity {
     /** 0 = Leve Teclado desligado, 1 = ligado mas não escolhido, 2 = é o teclado atual. */
     private int imeState() {
         try {
-            String id = getPackageName() + "/" + LeveKeyboard.class.getName();
-            String shortId = getPackageName() + "/.LeveKeyboard";
             String current = Settings.Secure.getString(getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD);
-            if (current != null && (current.equals(id) || current.equals(shortId))) return 2;
+            if (current != null && current.startsWith(getPackageName() + "/")) {
+                return current.endsWith("LeveKeyboardTv") ? 3 : 2;
+            }
             android.view.inputmethod.InputMethodManager imm =
                     (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
             if (imm != null) {
