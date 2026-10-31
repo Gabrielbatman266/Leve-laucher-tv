@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg">
+
+    <com.leve.launchertv.StarsView
+        android:id="@+id/stars"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:focusable="false" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:paddingLeft="56dp"
+        android:paddingRight="56dp"
+        android:paddingTop="32dp"
+        android:paddingBottom="24dp">
+
+        <!-- Diagnóstico -->
+        <ScrollView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:focusable="false"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-light"
+                    android:letterSpacing="0.35"
+                    android:text="LEVE REDE"
+                    android:textColor="@color/dim"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/verdict"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:fontFamily="sans-serif"
+                    android:shadowColor="@color/glow"
+                    android:shadowRadius="14"
+                    android:text="Medindo a internet…"
+                    android:textColor="@color/text"
+                    android:textSize="28sp" />
+
+                <TextView android:id="@+id/d_signal" style="@style/NetRow" />
+                <TextView android:id="@+id/d_band" style="@style/NetRow" />
+                <TextView android:id="@+id/d_router" style="@style/NetRow" />
+                <TextView android:id="@+id/d_dns" style="@style/NetRow" />
+                <TextView android:id="@+id/d_speed" style="@style/NetRow" />
+
+                <TextView
+                    android:id="@+id/tips"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:fontFamily="sans-serif-light"
+                    android:lineSpacingExtra="4dp"
+                    android:textColor="@color/move_line"
+                    android:textSize="16sp" />
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- Ações -->
+        <LinearLayout
+            android:layout_width="380dp"
+            android:layout_height="match_parent"
+            android:layout_marginLeft="36dp"
+            android:gravity="center_vertical"
+            android:orientation="vertical">
+
+            <TextView android:id="@+id/b_youcine" style="@style/NetButton" android:text="Abrir YouCine turbo" />
+            <TextView android:id="@+id/b_turbo" style="@style/NetButton" />
+            <TextView android:id="@+id/b_dns" style="@style/NetButton" />
+            <TextView android:id="@+id/b_test" style="@style/NetButton" android:text="Testar de novo" />
+            <TextView android:id="@+id/b_wifi" style="@style/NetButton" android:text="Configurações de Wi-Fi" />
+
+            <TextView
+                android:id="@+id/b_note"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:fontFamily="sans-serif-light"
+                android:textColor="@color/dim"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

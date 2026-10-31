@@ -16,6 +16,9 @@
 
     <!-- Manter o Leve como tela inicial mesmo reiniciando -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Leve Rede: liberar memória antes do YouCine e Wi-Fi turbo -->
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
@@ -70,6 +73,23 @@
             android:launchMode="singleTask"
             android:screenOrientation="landscape"
             android:taskAffinity="com.leve.launchertv.music" />
+
+        <activity
+            android:name=".NetActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:screenOrientation="landscape" />
+
+        <!-- DNS rápido: VPN local que só responde DNS -->
+        <service
+            android:name=".LeveDnsVpn"
+            android:exported="false"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+        </service>
 
         <service
             android:name=".LeveMusicService"

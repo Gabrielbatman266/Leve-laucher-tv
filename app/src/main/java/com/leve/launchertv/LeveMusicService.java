@@ -134,6 +134,42 @@ public class LeveMusicService extends Service {
         goForeground();
         running = true;
         pool.execute(this::serve);
+        applyTurbo();
+        if (LeveDnsVpn.enabled(this)) LeveDnsVpn.start(this);
+    }
+
+    // ---------- Wi-Fi turbo ----------
+
+    static final String PREF_TURBO = "wifi_turbo";
+    private WifiManager.WifiLock turboLock;
+
+    static boolean turboOn(Context c) {
+        return c.getSharedPreferences("leve", MODE_PRIVATE).getBoolean(PREF_TURBO, false);
+    }
+
+    /** Liga/desliga o Wi-Fi sem economia de energia (o box não "cochila" a antena). */
+    static void setTurbo(Context c, boolean on) {
+        c.getSharedPreferences("leve", MODE_PRIVATE).edit().putBoolean(PREF_TURBO, on).apply();
+        LeveMusicService s = instance;
+        if (s != null) s.applyTurbo();
+        else start(c);
+    }
+
+    void applyTurbo() {
+        try {
+            boolean on = turboOn(this);
+            if (on && turboLock == null) {
+                WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
+                turboLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "leve:turbo");
+                turboLock.setReferenceCounted(false);
+                turboLock.acquire();
+            } else if (!on && turboLock != null) {
+                turboLock.release();
+                turboLock = null;
+            }
+        } catch (Throwable t) {
+            LeveApp.log("WifiTurbo", t);
+        }
     }
 
     @Override
@@ -145,6 +181,10 @@ public class LeveMusicService extends Service {
     public void onDestroy() {
         running = false;
         instance = null;
+        try {
+            if (turboLock != null) turboLock.release();
+        } catch (Throwable ignored) {
+        }
         unregisterNsd();
         try {
             if (server != null) server.close();

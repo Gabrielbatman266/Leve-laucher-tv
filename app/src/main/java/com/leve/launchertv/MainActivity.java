@@ -54,7 +54,7 @@ public class MainActivity extends Activity {
     private static final String A_SETTINGS = "settings", A_HOME = "home", A_STARS = "stars",
             A_ALPHA = "alpha", A_HIDDEN = "hidden", A_UPDATE = "update", A_ST = "smarttube",
             A_NOW = "now_playing", A_MUSIC = "music", A_MOUSE = "mouse", A_IME = "ime",
-            A_GUARD = "guard";
+            A_GUARD = "guard", A_NET = "net";
 
     private static final int REQ_HOME = 7;
 
@@ -245,6 +245,7 @@ public class MainActivity extends Activity {
 
         // Opções
         rows.add(new Row(T_SECTION, "", getString(R.string.sec_opts), false));
+        rows.add(new Row(T_ACTION, A_NET, getString(R.string.net_row), false));
         rows.add(new Row(T_ACTION, A_SETTINGS, getString(R.string.settings), false));
         rows.add(new Row(T_ACTION, A_HOME,
                 getString(isDefaultHome() ? R.string.home_yes : R.string.home_no), false));
@@ -377,6 +378,9 @@ public class MainActivity extends Activity {
                 break;
             case A_NOW:
                 tryStart(new Intent(this, NowPlayingActivity.class));
+                break;
+            case A_NET:
+                tryStart(new Intent(this, NetActivity.class));
                 break;
             case A_GUARD:
                 boolean g = HomeGuard.enabled(this);
