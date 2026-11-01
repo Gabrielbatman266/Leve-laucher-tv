@@ -78,9 +78,7 @@
             android:divider="@null"
             android:dividerHeight="4dp"
             android:drawSelectorOnTop="false"
-            android:fadingEdgeLength="56dp"
             android:listSelector="@drawable/selector"
-            android:requiresFadingEdge="vertical"
             android:scrollbars="none" />
     </LinearLayout>
 </FrameLayout>

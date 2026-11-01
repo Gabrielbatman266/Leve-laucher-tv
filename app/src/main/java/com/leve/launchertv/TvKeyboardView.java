@@ -66,14 +66,14 @@ public class TvKeyboardView extends View {
         super(c);
         dp = c.getResources().getDisplayMetrics().density;
         keyBg.setColor(0x1AFFFFFF);
-        focusBg.setColor(0x6630C0FF);
+        focusBg.setColor(0xFFFFFFFF);
         focusLine.setStyle(Paint.Style.STROKE);
         focusLine.setStrokeWidth(2 * dp);
-        focusLine.setColor(0xFFBFE4FF);
+        focusLine.setColor(0xFFFFD400);
         text.setColor(0xFFEAF1FF);
         text.setTextAlign(Paint.Align.CENTER);
         text.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
-        small.setColor(0xFF7F93C9);
+        small.setColor(0xFFB8B8B8);
         small.setTextAlign(Paint.Align.RIGHT);
         small.setTextSize(10 * dp);
         chipBg.setColor(0x26FFD27A);
@@ -255,7 +255,7 @@ public class TvKeyboardView extends View {
 
     @Override
     protected void onSizeChanged(int w, int h, int ow, int oh) {
-        bg.setShader(new LinearGradient(0, 0, 0, h, 0xF2040B2A, 0xF20A1A4A, Shader.TileMode.CLAMP));
+        bg.setShader(new LinearGradient(0, 0, 0, h, 0xFF000000, 0xFF000000, Shader.TileMode.CLAMP));
         layoutKeys(w);
     }
 
@@ -303,7 +303,7 @@ public class TvKeyboardView extends View {
         // linha das sugestões (ou a dica quando não há)
         if (rows.get(0).isEmpty()) {
             text.setTextSize(13 * dp);
-            text.setColor(0xFF7F93C9);
+            text.setColor(0xFFB8B8B8);
             c.drawText(hint, w / 2f, pad() + chipH() / 2f + 5 * dp, text);
             text.setColor(0xFFEAF1FF);
         }
@@ -322,6 +322,7 @@ public class TvKeyboardView extends View {
                 if (k.type == K_SUGGEST) label = ellipsize(label, k.r.width() - 16 * dp);
                 if (k.type == K_SUGGEST && k.recent) label = "↺ " + label;
                 if (k.type == K_SHIFT && (shift || caps)) text.setColor(0xFFFFD27A);
+                if (on) text.setColor(0xFF000000); // tecla selecionada: branca com letra preta
                 c.drawText(label, k.r.centerX(), k.r.centerY() + size * dp * 0.36f, text);
                 text.setColor(0xFFEAF1FF);
 

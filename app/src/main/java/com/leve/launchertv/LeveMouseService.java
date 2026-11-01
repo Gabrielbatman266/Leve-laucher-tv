@@ -14,6 +14,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
@@ -52,6 +53,16 @@ public class LeveMouseService extends AccessibilityService {
     private boolean movePosted;
     private long lastMoveApplied;
 
+    private int cursorPx = 30;
+
+    // ---------- Mouse pelo controle remoto ----------
+    static final String PREF_RM_KEY = "rm_key"; // tecla que liga/desliga o mouse (0 = recurso desligado)
+    private boolean remoteMode;
+    private int rmKey;
+    private long okDownAt;
+    private long lastEdgeScroll;
+    private final Runnable rmAutoOff = () -> setRemoteMode(false);
+
     private final Runnable hide = () -> {
         if (cursor != null) cursor.setVisibility(View.GONE);
     };
@@ -76,6 +87,7 @@ public class LeveMouseService extends AccessibilityService {
         x = screenW / 2f;
         y = screenH / 2f;
         addCursor();
+        refreshRemoteMouse();
         RemoteHub.broadcastStatus();
         LeveMusicService.start(this); // o servidor do controle mora junto do Leve Music TV
         // Acabou de ligar a TV: já abre o Leve no lugar do launcher de fábrica
@@ -121,6 +133,7 @@ public class LeveMouseService extends AccessibilityService {
         cursor = new ImageView(this);
         cursor.setImageResource(R.drawable.cursor);
         int size = Math.round(30 * getResources().getDisplayMetrics().density);
+        cursorPx = size;
         lp = new WindowManager.LayoutParams(size, size,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -167,7 +180,144 @@ public class LeveMouseService extends AccessibilityService {
             }
         }
         h.removeCallbacks(hide);
-        h.postDelayed(hide, dragging ? HIDE_AFTER_MS * 3 : HIDE_AFTER_MS);
+        if (!remoteMode) h.postDelayed(hide, dragging ? HIDE_AFTER_MS * 3 : HIDE_AFTER_MS);
+    }
+
+    /** Ponta da setinha (o desenho tem a ponta 2/32 para dentro do canto). */
+    private float tip() {
+        return cursorPx * 2f / 32f;
+    }
+
+    /** Lê a tecla escolhida no launcher e liga/desliga a escuta das teclas do controle. */
+    void refreshRemoteMouse() {
+        rmKey = getSharedPreferences("leve", MODE_PRIVATE).getInt(PREF_RM_KEY, 0);
+        if (Build.VERSION.SDK_INT < 18) return;
+        android.accessibilityservice.AccessibilityServiceInfo info = getServiceInfo();
+        if (info == null) return;
+        int flag = android.accessibilityservice.AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS;
+        if (rmKey != 0) info.flags |= flag;
+        else info.flags &= ~flag;
+        try {
+            setServiceInfo(info);
+        } catch (Throwable ignored) {
+        }
+        if (rmKey == 0 && remoteMode) setRemoteMode(false);
+    }
+
+    boolean isRemoteMode() {
+        return remoteMode;
+    }
+
+    void setRemoteMode(boolean on) {
+        h.removeCallbacks(rmAutoOff);
+        if (remoteMode == on) return;
+        remoteMode = on;
+        if (on) {
+            if (cursor == null) addCursor();
+            showCursor();
+            h.postDelayed(rmAutoOff, 90_000);
+            RemoteHub.toast("Mouse ligado  ·  setas movem  ·  OK clica  ·  segure OK = toque longo  ·  "
+                    + keyName(rmKey) + " desliga");
+        } else {
+            hideCursorNow();
+            RemoteHub.toast("Mouse desligado: o controle volta ao normal");
+        }
+    }
+
+    static String keyName(int code) {
+        switch (code) {
+            case 0: return "nenhuma";
+            case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE: return "Play/Pausa";
+            case KeyEvent.KEYCODE_MENU: return "Menu";
+            case KeyEvent.KEYCODE_SETTINGS: return "Configurações";
+            case KeyEvent.KEYCODE_PROG_RED: return "botão vermelho";
+            case KeyEvent.KEYCODE_PROG_GREEN: return "botão verde";
+            case KeyEvent.KEYCODE_PROG_YELLOW: return "botão amarelo";
+            case KeyEvent.KEYCODE_PROG_BLUE: return "botão azul";
+            case KeyEvent.KEYCODE_INFO: return "Info";
+            case KeyEvent.KEYCODE_SEARCH: return "Pesquisa";
+            case KeyEvent.KEYCODE_TV_INPUT: return "Input/Fonte";
+            case KeyEvent.KEYCODE_GUIDE: return "Guia";
+            case KeyEvent.KEYCODE_BOOKMARK: return "Favoritos";
+            default:
+                String n = KeyEvent.keyCodeToString(code).replace("KEYCODE_", "").replace('_', ' ');
+                return n.substring(0, 1) + n.substring(1).toLowerCase(java.util.Locale.ROOT);
+        }
+    }
+
+    @Override
+    protected boolean onKeyEvent(KeyEvent e) {
+        try {
+            return handleRemoteKey(e);
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    private boolean handleRemoteKey(KeyEvent e) {
+        int k = e.getKeyCode();
+        boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
+        if (rmKey != 0 && k == rmKey) {
+            if (!down && !e.isCanceled()) setRemoteMode(!remoteMode);
+            return true;
+        }
+        if (!remoteMode) return false;
+        switch (k) {
+            case KeyEvent.KEYCODE_DPAD_UP:
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+            case KeyEvent.KEYCODE_DPAD_RIGHT: {
+                if (down) {
+                    // passo pequeno no 1º toque (precisão); segurando, acelera
+                    int rep = e.getRepeatCount();
+                    float step = screenW / 1920f * (rep == 0 ? 14 : Math.min(70, 14 + rep * 5));
+                    float dx = k == KeyEvent.KEYCODE_DPAD_LEFT ? -step : k == KeyEvent.KEYCODE_DPAD_RIGHT ? step : 0;
+                    float dy = k == KeyEvent.KEYCODE_DPAD_UP ? -step : k == KeyEvent.KEYCODE_DPAD_DOWN ? step : 0;
+                    float nx = clamp(x + dx, 0, screenW - 2), ny = clamp(y + dy, 0, screenH - 2);
+                    boolean atEdge = (dx != 0 && nx == x) || (dy != 0 && ny == y);
+                    x = nx;
+                    y = ny;
+                    showCursor();
+                    if (atEdge) edgeScroll(Math.signum(dx), Math.signum(dy));
+                }
+                bumpRemote();
+                return true;
+            }
+            case KeyEvent.KEYCODE_DPAD_CENTER:
+            case KeyEvent.KEYCODE_ENTER:
+            case KeyEvent.KEYCODE_NUMPAD_ENTER:
+            case KeyEvent.KEYCODE_BUTTON_A:
+                if (down) {
+                    if (e.getRepeatCount() == 0) okDownAt = e.getEventTime();
+                } else {
+                    click(e.getEventTime() - okDownAt > 550);
+                }
+                bumpRemote();
+                return true;
+            default:
+                return false; // Voltar, Home, volume etc. continuam normais
+        }
+    }
+
+    private void bumpRemote() {
+        h.removeCallbacks(rmAutoOff);
+        h.postDelayed(rmAutoOff, 90_000);
+    }
+
+    /** Cursor na borda e seta de novo: rola a página naquela direção. */
+    private void edgeScroll(float sx, float sy) {
+        long now = SystemClock.uptimeMillis();
+        if (now - lastEdgeScroll < 350 || Build.VERSION.SDK_INT < 24) return;
+        lastEdgeScroll = now;
+        float cx = screenW / 2f, cy = screenH / 2f;
+        Path p = new Path();
+        p.moveTo(cx, cy);
+        p.lineTo(cx - sx * screenW / 4f, cy - sy * screenH / 3f);
+        try {
+            dispatchGesture(new GestureDescription.Builder()
+                    .addStroke(new GestureDescription.StrokeDescription(p, 0, 220)).build(), null, null);
+        } catch (Throwable ignored) {
+        }
     }
 
     private void hideCursorNow() {
@@ -196,7 +346,9 @@ public class LeveMouseService extends AccessibilityService {
             movePosted = false;
         }
         lastMoveApplied = SystemClock.uptimeMillis();
-        float k = screenW / 1280f * 1.4f;
+        // aceleração: movimento lento = preciso, movimento rápido = vai longe
+        float mag = (float) Math.hypot(dx, dy);
+        float k = screenW / 1280f * 1.4f * (0.6f + Math.min(1.6f, mag / 14f));
         x = clamp(x + dx * k, 0, screenW - 2);
         y = clamp(y + dy * k, 0, screenH - 2);
         showCursor();
@@ -210,7 +362,7 @@ public class LeveMouseService extends AccessibilityService {
 
     void click(boolean longPress) {
         showCursor();
-        tapAt(x, y, longPress);
+        tapAt(x + tip(), y + tip(), longPress);
     }
 
     private void tapAt(float px, float py, boolean longPress) {

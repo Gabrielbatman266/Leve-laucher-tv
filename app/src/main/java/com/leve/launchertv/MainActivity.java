@@ -66,7 +66,7 @@ public class MainActivity extends Activity {
             A_GUARD = "guard", A_NET = "net", A_NEW = "new_version", A_SC = "sc:",
             A_LT = "levetube",
             A_TEXT = "text", A_HL = "highlight", A_TTS = "tts", A_ICONS = "icons", A_THEME = "theme",
-            A_TV_ACCESS = "tv_access";
+            A_TV_ACCESS = "tv_access", A_RMOUSE = "remote_mouse";
 
     private static final int REQ_HOME = 7;
 
@@ -146,10 +146,12 @@ public class MainActivity extends Activity {
             @Override
             public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) {
                 if (pos >= 0 && pos < rows.size()) speak(rows.get(pos).label);
+                growSelected(v);
             }
 
             @Override
             public void onNothingSelected(android.widget.AdapterView<?> p) {
+                growSelected(null);
             }
         });
     }
@@ -188,6 +190,95 @@ public class MainActivity extends Activity {
         if (!ttsReady || tts == null || text == null) return;
         String clean = text.replace("★", "").replace("✓", "").replace("·", ",").replace("♪", "").trim();
         tts.speak(clean, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "leve");
+    }
+
+    /** Mouse no controle remoto: aperta a tecla que vai ligar/desligar o cursor. */
+    private void chooseRemoteMouseKey() {
+        final AlertDialog d = new AlertDialog.Builder(this)
+                .setTitle(R.string.rm_title)
+                .setMessage(R.string.rm_learn)
+                .setPositiveButton(R.string.rm_use_play, (x, w) -> saveRemoteKey(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
+                .setNeutralButton(R.string.rm_disable, (x, w) -> saveRemoteKey(0))
+                .setNegativeButton(R.string.upd_later, null)
+                .create();
+        d.setOnKeyListener((dlg, code, ev) -> {
+            switch (code) {
+                case KeyEvent.KEYCODE_DPAD_UP: case KeyEvent.KEYCODE_DPAD_DOWN:
+                case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_DPAD_RIGHT:
+                case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER:
+                case KeyEvent.KEYCODE_NUMPAD_ENTER: case KeyEvent.KEYCODE_BACK:
+                case KeyEvent.KEYCODE_HOME: case KeyEvent.KEYCODE_VOLUME_UP:
+                case KeyEvent.KEYCODE_VOLUME_DOWN: case KeyEvent.KEYCODE_VOLUME_MUTE:
+                case KeyEvent.KEYCODE_POWER: case KeyEvent.KEYCODE_BUTTON_A:
+                    return false;
+            }
+            if (ev.getAction() == KeyEvent.ACTION_UP) {
+                saveRemoteKey(code);
+                d.dismiss();
+            }
+            return true;
+        });
+        d.show();
+    }
+
+    private void saveRemoteKey(int code) {
+        prefs.edit().putInt(LeveMouseService.PREF_RM_KEY, code).apply();
+        LeveMouseService m = RemoteHub.mouse;
+        if (m != null) m.refreshRemoteMouse();
+        if (code == 0) {
+            Toast.makeText(this, R.string.rm_disabled_toast, Toast.LENGTH_SHORT).show();
+        } else if (m == null) {
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.mouse_name)
+                    .setMessage(R.string.rm_need_service)
+                    .setPositiveButton(R.string.mouse_open_settings, (x, w) -> {
+                        HomeGuard.pause();
+                        Shortcuts.open(this, Shortcuts.ACCESSIBILITY);
+                    })
+                    .setNegativeButton(R.string.upd_later, null)
+                    .show();
+        } else {
+            Toast.makeText(this, getString(R.string.rm_saved, LeveMouseService.keyName(code)), Toast.LENGTH_LONG).show();
+        }
+        reload(A_RMOUSE);
+    }
+
+    /** Esquerda/direita pulam de seção (Principais → Apps → Acessibilidade…). */
+    private boolean jumpSection(int dir) {
+        int pos = list.getSelectedItemPosition();
+        if (pos < 0) return false;
+        int i = pos;
+        // acha o cabeçalho da seção atual
+        while (i > 0 && rows.get(i).type != T_SECTION) i--;
+        int target = -1;
+        if (dir > 0) {
+            for (int j = pos + 1; j < rows.size(); j++) {
+                if (rows.get(j).type == T_SECTION && j + 1 < rows.size()) { target = j + 1; break; }
+            }
+        } else {
+            int prevHeader = -1;
+            for (int j = i - 1; j >= 0; j--) if (rows.get(j).type == T_SECTION) { prevHeader = j; break; }
+            target = prevHeader >= 0 ? prevHeader + 1 : firstSelectable();
+            if (prevHeader < 0 && target == pos) return true;
+        }
+        if (target < 0 || target >= rows.size()) return true;
+        list.setSelection(target);
+        // a voz fala o nome da seção junto
+        int h = target - 1;
+        if (h >= 0 && rows.get(h).type == T_SECTION) speak(rows.get(h).label + ". " + rows.get(target).label);
+        return true;
+    }
+
+    private View grown;
+
+    /** Item selecionado cresce um pouquinho (animação curta, sem custo). */
+    private void growSelected(View v) {
+        if (grown != null && grown != v) grown.animate().scaleX(1f).scaleY(1f).setDuration(90).start();
+        grown = v;
+        if (v == null) return;
+        v.setPivotX(0);
+        v.setPivotY(v.getHeight() / 2f);
+        v.animate().scaleX(1.04f).scaleY(1.04f).setDuration(90).start();
     }
 
     private boolean amoled() {
@@ -516,6 +607,10 @@ public class MainActivity extends Activity {
         rows.add(new Row(T_ACTION, A_MOUSE, !mouseOn ? getString(R.string.mouse_off)
                 : ip.isEmpty() ? getString(R.string.mouse_on_noip)
                 : getString(R.string.mouse_on, ip + ":" + LeveMusicService.PORT), false));
+        int rk = prefs.getInt(LeveMouseService.PREF_RM_KEY, 0);
+        rows.add(new Row(T_ACTION, A_RMOUSE, rk == 0 ? getString(R.string.rm_off)
+                : RemoteHub.mouse == null ? getString(R.string.rm_need, LeveMouseService.keyName(rk))
+                : getString(R.string.rm_on, LeveMouseService.keyName(rk)), false));
         int ime = imeState();
         rows.add(new Row(T_ACTION, A_IME, getString(ime == 3 ? R.string.ime_tv_on
                 : ime == 2 ? R.string.ime_on : ime == 1 ? R.string.ime_enabled : R.string.ime_off), false));
@@ -646,6 +741,9 @@ public class MainActivity extends Activity {
                 setupTts(sp);
                 if (sp) Toast.makeText(this, R.string.tts_ready, Toast.LENGTH_SHORT).show();
                 reload(A_TTS);
+                break;
+            case A_RMOUSE:
+                chooseRemoteMouseKey();
                 break;
             case A_TV_ACCESS:
                 HomeGuard.pause();
@@ -904,6 +1002,17 @@ public class MainActivity extends Activity {
             swallowKeyUp = false;
             return true;
         }
+        if ((k == KeyEvent.KEYCODE_DPAD_RIGHT || k == KeyEvent.KEYCODE_DPAD_LEFT
+                || k == KeyEvent.KEYCODE_CHANNEL_DOWN || k == KeyEvent.KEYCODE_CHANNEL_UP
+                || k == KeyEvent.KEYCODE_PAGE_DOWN || k == KeyEvent.KEYCODE_PAGE_UP)
+                && list.hasFocus()) {
+            if (e.getAction() == KeyEvent.ACTION_DOWN) {
+                boolean fwd = k == KeyEvent.KEYCODE_DPAD_RIGHT || k == KeyEvent.KEYCODE_CHANNEL_DOWN
+                        || k == KeyEvent.KEYCODE_PAGE_DOWN;
+                jumpSection(fwd ? 1 : -1);
+            }
+            return true;
+        }
         if (k == KeyEvent.KEYCODE_MENU && e.getAction() == KeyEvent.ACTION_DOWN) {
             showOptions(list.getSelectedItemPosition());
             return true;
@@ -1055,6 +1164,10 @@ public class MainActivity extends Activity {
                 int layout = r.type == T_SECTION ? R.layout.row_section
                         : (r.type == T_BIG || r.type == T_BIG_ACTION) ? R.layout.row_big : R.layout.row;
                 v = getLayoutInflater().inflate(layout, parent, false);
+            }
+            if (v != grown) {
+                v.setScaleX(1f);
+                v.setScaleY(1f);
             }
             TextView label = v.findViewById(R.id.label);
             ImageView icon = v.findViewById(R.id.icon);

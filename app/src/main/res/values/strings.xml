@@ -167,7 +167,7 @@
 
     <string name="sec_access">ACESSIBILIDADE</string>
     <string name="sec_look">APARÊNCIA</string>
-    <string name="sec_phone">CELULAR COMO CONTROLE</string>
+    <string name="sec_phone">CONTROLE E MOUSE</string>
     <string name="text_row">Tamanho do texto: %1$s</string>
     <string name="text_1">normal</string>
     <string name="text_2">grande</string>
@@ -183,4 +183,15 @@
     <string name="theme_amoled">Tema: AMOLED preto ✓  ·  trocar para Console azul</string>
     <string name="theme_ps2">Tema: Console azul ✓  ·  trocar para AMOLED preto</string>
     <string name="tv_access">Acessibilidade da TV (legendas, lupa, alto contraste)</string>
+
+    <string name="rm_off">Mouse no controle remoto: desligado  ·  ativar</string>
+    <string name="rm_on">Mouse no controle remoto: ligado ✓  ·  tecla %1$s</string>
+    <string name="rm_need">Mouse no controle remoto: falta ativar o Leve Mouse  ·  tecla %1$s</string>
+    <string name="rm_title">Mouse no controle remoto</string>
+    <string name="rm_learn">Para apps que só funcionam com toque, o controle vira mouse:\n\n• Aperte uma vez a tecla escolhida: aparece o cursor.\n• Setas movem (segurando, vai mais rápido). Na borda, rola a página.\n• OK clica. Segurar OK = toque longo.\n• Aperte a tecla de novo para voltar ao normal.\n\nAPERTE AGORA a tecla do controle que você quer usar (Play/Pausa, Menu, um botão colorido…), ou escolha abaixo.</string>
+    <string name="rm_use_play">Usar Play/Pausa</string>
+    <string name="rm_disable">Desativar</string>
+    <string name="rm_saved">Pronto: aperte %1$s para ligar ou desligar o mouse</string>
+    <string name="rm_disabled_toast">Mouse no controle desativado</string>
+    <string name="rm_need_service">Falta ligar o Leve Mouse na Acessibilidade da TV (é ele que desenha o cursor e faz os cliques).\n\nSe ele já estava ligado antes desta versão, desligue e ligue de novo para liberar o controle remoto.</string>
 </resources>
