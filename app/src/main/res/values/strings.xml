@@ -200,4 +200,10 @@
     <string name="adapt_on_toast">Pronto: ao abrir, o Leve libera memória e o controle vira mouse (setas movem, OK clica)</string>
     <string name="adapt_off_toast">Adaptação desligada: o app abre normal</string>
     <string name="adapt_need_mouse">Para o controle virar mouse dentro desse app, ligue o Leve Mouse na Acessibilidade da TV.\n\nSe ele já estava ligado antes desta versão, desligue e ligue de novo.</string>
+
+    <string name="sound_row">Som do controle: %1$s  ·  trocar</string>
+    <string name="sound_soft">suave</string>
+    <string name="sound_ps2">sininho de console</string>
+    <string name="sound_off">sem som</string>
+    <string name="sound_system">o do box</string>
 </resources>

@@ -66,7 +66,7 @@ public class MainActivity extends Activity {
             A_GUARD = "guard", A_NET = "net", A_NEW = "new_version", A_SC = "sc:",
             A_LT = "levetube",
             A_TEXT = "text", A_HL = "highlight", A_TTS = "tts", A_ICONS = "icons", A_THEME = "theme",
-            A_TV_ACCESS = "tv_access", A_RMOUSE = "remote_mouse";
+            A_TV_ACCESS = "tv_access", A_RMOUSE = "remote_mouse", A_SOUND = "sound";
 
     private static final int REQ_HOME = 7;
 
@@ -82,6 +82,9 @@ public class MainActivity extends Activity {
     private boolean showHidden = false;
     private Set<String> lastPackages = new HashSet<>();
 
+    private SoundFx fx;
+    private boolean ownSounds;
+    private boolean firstSelect = true;
     private android.speech.tts.TextToSpeech tts;
     private boolean ttsReady;
     private float textScale = 1f;
@@ -132,6 +135,7 @@ public class MainActivity extends Activity {
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         icons = new IconCache(this);
         updater = new Updater(this);
+        fx = new SoundFx(this);
 
         stars = findViewById(R.id.stars);
         hint = findViewById(R.id.hint);
@@ -147,6 +151,8 @@ public class MainActivity extends Activity {
             public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) {
                 if (pos >= 0 && pos < rows.size()) speak(rows.get(pos).label);
                 growSelected(v);
+                if (firstSelect) firstSelect = false;
+                else if (android.os.SystemClock.uptimeMillis() > quietUntil) fx.play(SoundFx.MOVE);
             }
 
             @Override
@@ -160,6 +166,7 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         if (tts != null) tts.shutdown();
         tts = null;
+        fx.release();
         super.onDestroy();
     }
 
@@ -244,6 +251,16 @@ public class MainActivity extends Activity {
     }
 
     /** Esquerda/direita pulam de seção (Principais → Apps → Acessibilidade…). */
+    private long quietUntil;   // seleção mudada pelo próprio Leve (pulo/recarregar): sem som de "mover"
+
+    /** Som próprio no lugar do clique do sistema (ou o do sistema, se escolhido). */
+    private void applySoundStyle() {
+        String st = SoundFx.style(this);
+        ownSounds = !st.equals("system");
+        fx.prepare(st);
+        list.setSoundEffectsEnabled(!ownSounds);
+    }
+
     private boolean jumpSection(int dir) {
         int pos = list.getSelectedItemPosition();
         if (pos < 0) return false;
@@ -262,7 +279,9 @@ public class MainActivity extends Activity {
             if (prevHeader < 0 && target == pos) return true;
         }
         if (target < 0 || target >= rows.size()) return true;
+        quietUntil = android.os.SystemClock.uptimeMillis() + 250;
         list.setSelection(target);
+        fx.play(SoundFx.SIDE);
         // a voz fala o nome da seção junto
         int h = target - 1;
         if (h >= 0 && rows.get(h).type == T_SECTION) speak(rows.get(h).label + ". " + rows.get(target).label);
@@ -294,6 +313,7 @@ public class MainActivity extends Activity {
         textScale = TEXT_SCALES[Math.max(0, Math.min(2, prefs.getInt(KEY_TEXT, 0)))];
         showIcons = prefs.getBoolean(KEY_ICONS, true);
         setupTts(prefs.getBoolean(KEY_TTS, false));
+        applySoundStyle();
         stars.setAmoled(amoled());
         stars.setAnimate(prefs.getBoolean(KEY_STARS, !amoled()));
         stars.setRunning(true);
@@ -498,6 +518,7 @@ public class MainActivity extends Activity {
         });
         Set<String> hidden = new HashSet<>(hiddenList);
 
+        quietUntil = android.os.SystemClock.uptimeMillis() + 250;
         rows.clear();
         adaptedNow = AppAdapt.list(this);
 
@@ -591,6 +612,10 @@ public class MainActivity extends Activity {
         rows.add(new Row(T_ACTION, A_STARS,
                 getString(prefs.getBoolean(KEY_STARS, !amoled()) ? R.string.stars_on : R.string.stars_off), false));
         rows.add(new Row(T_ACTION, A_ICONS, getString(showIcons ? R.string.icons_on : R.string.icons_off), false));
+        String st = SoundFx.style(this);
+        rows.add(new Row(T_ACTION, A_SOUND, getString(R.string.sound_row, getString(
+                st.equals("ps2") ? R.string.sound_ps2 : st.equals("off") ? R.string.sound_off
+                        : st.equals("system") ? R.string.sound_system : R.string.sound_soft)), false));
         if (!order.isEmpty()) {
             rows.add(new Row(T_ACTION, A_ALPHA, getString(R.string.alpha), false));
         }
@@ -727,6 +752,7 @@ public class MainActivity extends Activity {
     // ================= Cliques =================
 
     private void click(Row row) {
+        fx.play(SoundFx.OK);
         if (row.isApp()) {
             launch(row.id);
             return;
@@ -761,6 +787,18 @@ public class MainActivity extends Activity {
                 if (sp) Toast.makeText(this, R.string.tts_ready, Toast.LENGTH_SHORT).show();
                 reload(A_TTS);
                 break;
+            case A_SOUND: {
+                String[] order = {"soft", "ps2", "off", "system"};
+                String cur = SoundFx.style(this);
+                int i = 0;
+                while (i < order.length && !order[i].equals(cur)) i++;
+                String next = order[(i + 1) % order.length];
+                prefs.edit().putString(SoundFx.KEY, next).apply();
+                applySoundStyle();
+                fx.play(SoundFx.SIDE); // amostra do som novo
+                reload(A_SOUND);
+                break;
+            }
             case A_RMOUSE:
                 chooseRemoteMouseKey();
                 break;
