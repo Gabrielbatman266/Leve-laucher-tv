@@ -219,7 +219,11 @@ public class LeveMouseService extends AccessibilityService {
         h.removeCallbacks(rmAutoOff);
         if (remoteMode == on) return;
         remoteMode = on;
-        if (!on) autoMode = false;
+        if (!on) {
+            autoMode = false;
+            holding = false;
+            h.removeCallbacks(holdTick);
+        }
         if (on) {
             if (cursor == null) addCursor();
             readScreen();
@@ -298,19 +302,8 @@ public class LeveMouseService extends AccessibilityService {
             case KeyEvent.KEYCODE_DPAD_DOWN:
             case KeyEvent.KEYCODE_DPAD_LEFT:
             case KeyEvent.KEYCODE_DPAD_RIGHT: {
-                if (down) {
-                    // passo pequeno no 1º toque (precisão); segurando, acelera
-                    int rep = e.getRepeatCount();
-                    float step = screenW / 1920f * (rep == 0 ? 26 : Math.min(110, 26 + rep * 9));
-                    float dx = k == KeyEvent.KEYCODE_DPAD_LEFT ? -step : k == KeyEvent.KEYCODE_DPAD_RIGHT ? step : 0;
-                    float dy = k == KeyEvent.KEYCODE_DPAD_UP ? -step : k == KeyEvent.KEYCODE_DPAD_DOWN ? step : 0;
-                    float nx = clamp(x + dx, 0, screenW - 2), ny = clamp(y + dy, 0, screenH - 2);
-                    boolean atEdge = (dx != 0 && nx == x) || (dy != 0 && ny == y);
-                    x = nx;
-                    y = ny;
-                    showCursor();
-                    if (atEdge) edgeScroll(Math.signum(dx), Math.signum(dy));
-                }
+                if (down) holdStart(k);
+                else holdRelease(k);
                 bumpRemote();
                 return true;
             }
@@ -340,6 +333,51 @@ public class LeveMouseService extends AccessibilityService {
             default:
                 return false; // Voltar, Home, volume etc. continuam normais
         }
+    }
+
+    // ---------- Segurar a seta: movimento contínuo e acelerado (não depende do controle repetir) ----------
+    private int holdKey;
+    private long holdSince;
+    private boolean holding;
+    private final Runnable holdStop = () -> holding = false;
+    private final Runnable holdTick = new Runnable() {
+        @Override
+        public void run() {
+            if (!holding) return;
+            long held = SystemClock.uptimeMillis() - holdSince;
+            // começa devagar (mira) e vai acelerando até atravessar a tela em ~1 s
+            float speed = screenW / 1920f * (held < 250 ? 5 : Math.min(42, 5 + (held - 250) / 18f));
+            moveBy(holdKey, speed);
+            h.postDelayed(this, 16);
+        }
+    };
+
+    private void holdStart(int k) {
+        h.removeCallbacks(holdStop);
+        if (holding && holdKey == k) return; // controle que repete aperta/solta: continua o mesmo movimento
+        holding = true;
+        holdKey = k;
+        holdSince = SystemClock.uptimeMillis();
+        moveBy(k, screenW / 1920f * 24); // um toque = um passo firme
+        h.removeCallbacks(holdTick);
+        h.postDelayed(holdTick, 180);
+    }
+
+    private void holdRelease(int k) {
+        if (k != holdKey) return;
+        h.removeCallbacks(holdStop);
+        h.postDelayed(holdStop, 140);
+    }
+
+    private void moveBy(int k, float step) {
+        float dx = k == KeyEvent.KEYCODE_DPAD_LEFT ? -step : k == KeyEvent.KEYCODE_DPAD_RIGHT ? step : 0;
+        float dy = k == KeyEvent.KEYCODE_DPAD_UP ? -step : k == KeyEvent.KEYCODE_DPAD_DOWN ? step : 0;
+        float nx = clamp(x + dx, 0, screenW - 2), ny = clamp(y + dy, 0, screenH - 2);
+        boolean atEdge = (dx != 0 && nx == x) || (dy != 0 && ny == y);
+        x = nx;
+        y = ny;
+        showCursor();
+        if (atEdge) edgeScroll(Math.signum(dx), Math.signum(dy));
     }
 
     private void bumpRemote() {
