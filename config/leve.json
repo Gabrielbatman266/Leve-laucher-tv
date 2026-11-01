@@ -1,9 +1,13 @@
 {
   "rev": 1,
   "title": "LEVE",
-  "message": "",
+  "message": "configuração ao vivo funcionando ✓",
   "accent": "",
-  "sky": ["#01020A", "#040B2A", "#0A1A4A"],
+  "sky": [
+    "#01020A",
+    "#040B2A",
+    "#0A1A4A"
+  ],
   "clockSize": 76,
   "pin": [],
   "hide": [],
