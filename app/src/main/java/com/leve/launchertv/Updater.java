@@ -72,7 +72,16 @@ final class Updater {
         }).start();
     }
 
-    private int fetchLatestNumber() throws Exception {
+    /** Número da versão mais nova no GitHub (-1 se não deu). Chamar fora da thread principal. */
+    static int latestAvailable() {
+        try {
+            return fetchLatestNumber();
+        } catch (Throwable t) {
+            return -1;
+        }
+    }
+
+    private static int fetchLatestNumber() throws Exception {
         HttpURLConnection c = open(API);
         try (InputStream in = c.getInputStream()) {
             ByteArrayOutputStream buf = new ByteArrayOutputStream();

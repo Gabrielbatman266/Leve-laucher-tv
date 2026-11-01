@@ -1,0 +1,12 @@
+{
+  "rev": 1,
+  "title": "LEVE",
+  "message": "",
+  "accent": "",
+  "sky": ["#01020A", "#040B2A", "#0A1A4A"],
+  "clockSize": 76,
+  "pin": [],
+  "hide": [],
+  "rename": {},
+  "shortcuts": []
+}

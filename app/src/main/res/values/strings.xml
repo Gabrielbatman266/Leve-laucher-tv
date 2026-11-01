@@ -145,6 +145,9 @@
     <string name="share_toast_on_old">Ligado. Neste Android, também coloque proxy manual 192.168.49.1 porta 8282 nas opções avançadas do Wi-Fi DIRECT</string>
     <string name="share_toast_off">Leve Share desligado: reconecte a TV no Wi-Fi de casa</string>
 
+    <string name="upd_new_row">⬇  Nova versão %1$s  ·  apertar para instalar</string>
+    <string name="upd_new_toast">Saiu a versão %1$s do Leve. Ela aparece no topo da lista.</string>
+
     <string name="upd_title">Atualizar</string>
     <string name="upd_checking">Procurando atualização…</string>
     <string name="upd_latest">Você já tem a versão mais nova (v%s)</string>

@@ -54,7 +54,7 @@ public class MainActivity extends Activity {
     private static final String A_SETTINGS = "settings", A_HOME = "home", A_STARS = "stars",
             A_ALPHA = "alpha", A_HIDDEN = "hidden", A_UPDATE = "update", A_ST = "smarttube",
             A_NOW = "now_playing", A_MUSIC = "music", A_MOUSE = "mouse", A_IME = "ime",
-            A_GUARD = "guard", A_NET = "net";
+            A_GUARD = "guard", A_NET = "net", A_NEW = "new_version", A_SC = "sc:";
 
     private static final int REQ_HOME = 7;
 
@@ -137,7 +137,111 @@ public class MainActivity extends Activity {
         reload(null);
         list.requestFocus();
         ui.postDelayed(musicWatch, 2000);
+        applyLook();
+        ui.post(liveConfig);
+        checkUpdateMaybe();
         showLastError();
+    }
+
+    // ================= Configuração ao vivo + aviso de versão nova =================
+
+    private volatile boolean fetching;
+
+    /** Relê config/leve.json do GitHub a cada minuto enquanto a tela inicial está aberta. */
+    private final Runnable liveConfig = new Runnable() {
+        @Override
+        public void run() {
+            ui.removeCallbacks(this);
+            if (!fetching) {
+                fetching = true;
+                new Thread(() -> {
+                    boolean changed = RemoteConfig.fetch(MainActivity.this);
+                    fetching = false;
+                    if (changed) ui.post(() -> {
+                        applyLook();
+                        int pos = list.getSelectedItemPosition();
+                        reload(pos >= 0 && pos < rows.size() ? rows.get(pos).id : null);
+                    });
+                }).start();
+            }
+            ui.postDelayed(this, 60_000);
+        }
+    };
+
+    /** Aparência vinda da configuração (título, aviso, cores, relógio). */
+    private void applyLook() {
+        org.json.JSONObject j = RemoteConfig.get(this);
+        if (moveIndex < 0) {
+            String title = j.optString("title", getString(R.string.title));
+            String msg = j.optString("message", "");
+            hint.setText(msg.isEmpty() ? title : title + "   ·   " + msg);
+            hint.setTextColor(msg.isEmpty() ? getResources().getColor(R.color.dim) : getResources().getColor(R.color.move_line));
+        }
+        org.json.JSONArray sky = j.optJSONArray("sky");
+        if (sky != null && sky.length() == 3) {
+            stars.setSky(new int[]{
+                    RemoteConfig.color(sky.optString(0), 0xFF01020A),
+                    RemoteConfig.color(sky.optString(1), 0xFF040B2A),
+                    RemoteConfig.color(sky.optString(2), 0xFF0A1A4A)});
+        }
+        if (j.has("stars") && !prefs.getBoolean("stars_user_set", false)) {
+            stars.setAnimate(j.optBoolean("stars", true));
+        }
+        int clock = j.optInt("clockSize", 0);
+        if (clock >= 30 && clock <= 160) {
+            android.view.View root = findViewById(android.R.id.content);
+            setClockSize(root, clock);
+        }
+        if (moveIndex < 0) list.setSelector(selectorDrawable());
+    }
+
+    private void setClockSize(android.view.View v, int sp) {
+        if (v instanceof android.widget.TextClock && ((android.widget.TextView) v).getTextSize() > 40 * getResources().getDisplayMetrics().density) {
+            ((android.widget.TextView) v).setTextSize(sp);
+            return;
+        }
+        if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) setClockSize(g.getChildAt(i), sp);
+        }
+    }
+
+    /** Seleção na cor "accent" da configuração (ou a azul padrão). */
+    private android.graphics.drawable.Drawable selectorDrawable() {
+        String a = RemoteConfig.get(this).optString("accent", "");
+        if (a.isEmpty()) return getResources().getDrawable(R.drawable.selector);
+        int c = RemoteConfig.color(a, 0xFF30C0FF);
+        float dp = getResources().getDisplayMetrics().density;
+        android.graphics.drawable.GradientDrawable on = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{(c & 0x00FFFFFF) | 0x55000000, (c & 0x00FFFFFF) | 0x22000000});
+        on.setCornerRadius(12 * dp);
+        on.setStroke((int) dp, (c & 0x00FFFFFF) | 0xAA000000);
+        android.graphics.drawable.StateListDrawable s = new android.graphics.drawable.StateListDrawable();
+        s.addState(new int[]{android.R.attr.state_pressed}, on);
+        s.addState(new int[]{android.R.attr.state_selected}, on);
+        s.addState(new int[]{android.R.attr.state_focused}, on);
+        s.addState(new int[]{}, new android.graphics.drawable.ColorDrawable(0));
+        return s;
+    }
+
+    private static final String KEY_UPD_CHECK = "upd_last_check", KEY_UPD_AVAIL = "upd_available";
+
+    /** Confere versão nova no máximo a cada 3 horas, em segundo plano. */
+    private void checkUpdateMaybe() {
+        long now = System.currentTimeMillis();
+        if (now - prefs.getLong(KEY_UPD_CHECK, 0) < 3 * 3600 * 1000L) return;
+        prefs.edit().putLong(KEY_UPD_CHECK, now).apply();
+        new Thread(() -> {
+            int latest = Updater.latestAvailable();
+            if (latest <= 0) return;
+            int mine = Updater.installedVersion(this);
+            prefs.edit().putInt(KEY_UPD_AVAIL, latest > mine ? latest : 0).apply();
+            if (latest > mine) ui.post(() -> {
+                Toast.makeText(this, getString(R.string.upd_new_toast, "1.0." + latest), Toast.LENGTH_LONG).show();
+                reload(null);
+            });
+        }).start();
     }
 
     /** Se o Leve fechou sozinho, mostra o motivo uma vez (para mandar print ao Claude). */
@@ -164,6 +268,7 @@ public class MainActivity extends Activity {
         super.onPause();
         stars.setRunning(false);
         ui.removeCallbacks(musicWatch);
+        ui.removeCallbacks(liveConfig);
         if (moveIndex >= 0) endMove();
     }
 
@@ -188,10 +293,17 @@ public class MainActivity extends Activity {
         }
         firstRun(apps);
         String smartTube = findSmartTube(apps);
+        RemoteConfig.rename(this, apps);
 
         List<String> pinned = readList(KEY_PINNED);
         final List<String> order = readList(KEY_ORDER);
-        Set<String> hidden = new HashSet<>(readList(KEY_HIDDEN));
+        final List<String> hiddenList = readList(KEY_HIDDEN);
+        final List<String> pinnedRef = pinned;
+        RemoteConfig.applyOnce(this, pinned, hiddenList, () -> {
+            writeList(KEY_PINNED, pinnedRef);
+            writeList(KEY_HIDDEN, hiddenList);
+        });
+        Set<String> hidden = new HashSet<>(hiddenList);
 
         rows.clear();
 
@@ -210,6 +322,22 @@ public class MainActivity extends Activity {
         if (playing != null) {
             String what = playing.title + (playing.artist.isEmpty() ? "" : "  —  " + playing.artist);
             main.add(0, new Row(T_BIG_ACTION, A_NOW, getString(R.string.lm_now, what), false));
+        }
+
+        // Versão nova disponível: primeira linha
+        int avail = prefs.getInt(KEY_UPD_AVAIL, 0);
+        if (avail > Updater.installedVersion(this)) {
+            main.add(0, new Row(T_BIG_ACTION, A_NEW, getString(R.string.upd_new_row, "1.0." + avail), false));
+        }
+
+        // Atalhos da configuração ao vivo (sites ou apps)
+        org.json.JSONArray sc = RemoteConfig.get(this).optJSONArray("shortcuts");
+        if (sc != null) {
+            for (int i = 0; i < sc.length(); i++) {
+                org.json.JSONObject s = sc.optJSONObject(i);
+                if (s == null || s.optString("label").isEmpty()) continue;
+                main.add(new Row(T_BIG_ACTION, A_SC + i, s.optString("label"), false));
+            }
         }
 
         if (!main.isEmpty() || offerSmartTube) {
@@ -348,6 +476,10 @@ public class MainActivity extends Activity {
             launch(row.id);
             return;
         }
+        if (row.id.startsWith(A_SC)) {
+            openShortcut(Integer.parseInt(row.id.substring(A_SC.length())));
+            return;
+        }
         switch (row.id) {
             case A_SETTINGS:
                 HomeGuard.pause();
@@ -358,7 +490,7 @@ public class MainActivity extends Activity {
                 break;
             case A_STARS:
                 boolean on = !prefs.getBoolean(KEY_STARS, true);
-                prefs.edit().putBoolean(KEY_STARS, on).apply();
+                prefs.edit().putBoolean(KEY_STARS, on).putBoolean("stars_user_set", true).apply();
                 stars.setAnimate(on);
                 stars.setRunning(true);
                 reload(A_STARS);
@@ -376,6 +508,9 @@ public class MainActivity extends Activity {
                 break;
             case A_ST:
                 updater.installSmartTube();
+                break;
+            case A_NEW:
+                updater.check();
                 break;
             case A_NOW:
                 tryStart(new Intent(this, NowPlayingActivity.class));
@@ -443,6 +578,22 @@ public class MainActivity extends Activity {
                 else LeveMusicService.stop(this);
                 reload(A_MUSIC);
                 break;
+        }
+    }
+
+    /** Atalho da configuração ao vivo: abre um site ou um app. */
+    private void openShortcut(int i) {
+        org.json.JSONArray sc = RemoteConfig.get(this).optJSONArray("shortcuts");
+        org.json.JSONObject s = sc == null ? null : sc.optJSONObject(i);
+        if (s == null) return;
+        String pkg = s.optString("package", "");
+        String url = s.optString("url", "");
+        if (!pkg.isEmpty()) {
+            launch(pkg);
+        } else if (!url.isEmpty()) {
+            if (!tryStart(new Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))) {
+                Toast.makeText(this, R.string.cant_open, Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
@@ -527,8 +678,9 @@ public class MainActivity extends Activity {
 
     private void endMove() {
         moveIndex = -1;
-        list.setSelector(R.drawable.selector);
+        list.setSelector(selectorDrawable());
         hint.setText(R.string.title);
+        applyLook();
         hint.setTextColor(getResources().getColor(R.color.dim));
     }
 

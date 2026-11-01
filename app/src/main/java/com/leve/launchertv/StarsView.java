@@ -63,10 +63,20 @@ public class StarsView extends View {
         }
     }
 
+    private int[] skyColors = {0xFF01020A, 0xFF040B2A, 0xFF0A1A4A};
+
+    /** Troca as cores do céu (configuração ao vivo). */
+    public void setSky(int[] colors) {
+        if (colors == null || colors.length != 3 || java.util.Arrays.equals(colors, skyColors)) return;
+        skyColors = colors;
+        if (getHeight() > 0) onSizeChanged(getWidth(), getHeight(), getWidth(), getHeight());
+        invalidate();
+    }
+
     @Override
     protected void onSizeChanged(int w, int h, int ow, int oh) {
         sky.setShader(new LinearGradient(0, 0, 0, h,
-                new int[]{0xFF01020A, 0xFF040B2A, 0xFF0A1A4A},
+                skyColors,
                 new float[]{0f, 0.6f, 1f}, Shader.TileMode.CLAMP));
         mist.setShader(new RadialGradient(w * 0.72f, h * 1.05f, Math.max(w, h) * 0.7f,
                 0x553A6BFF, 0x003A6BFF, Shader.TileMode.CLAMP));
