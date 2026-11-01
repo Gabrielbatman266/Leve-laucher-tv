@@ -106,6 +106,50 @@ final class Updater {
                 .show();
     }
 
+    // ================= Leve Tube (SmartTube leve, do Gabriel) =================
+
+    static final String LT_PKG = "com.gabriel.levetube";
+    private static final String LT_API = "https://api.github.com/repos/Gabrielbatman266/Leve-tube/releases?per_page=30";
+    static final String LT_PAGE = "https://github.com/Gabrielbatman266/Leve-tube/releases";
+
+    /** Maior número de "leve-tube-N" publicado (-1 se não deu). Chamar fora da thread principal. */
+    static int latestLeveTube() {
+        try {
+            Matcher m = Pattern.compile("\"tag_name\"\\s*:\\s*\"leve-tube-(\\d+)\"").matcher(readText(LT_API));
+            int best = -1;
+            while (m.find()) best = Math.max(best, Integer.parseInt(m.group(1)));
+            return best;
+        } catch (Throwable t) {
+            return -1;
+        }
+    }
+
+    /** Número da versão do Leve Tube instalada (versionCode = 10000 + número), 0 se não tem. */
+    static int installedLeveTube(Activity a) {
+        try {
+            return a.getPackageManager().getPackageInfo(LT_PKG, 0).versionCode - 10000;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    /** Baixa e instala (ou atualiza) o Leve Tube. */
+    void installLeveTube() {
+        if (busy) return;
+        if (!canInstall()) return;
+        busy = true;
+        Toast.makeText(act, R.string.lt_searching, Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            final int n = latestLeveTube();
+            act.runOnUiThread(() -> {
+                busy = false;
+                if (n <= 0) fail(null, LT_PAGE);
+                else download("https://github.com/Gabrielbatman266/Leve-tube/releases/download/leve-tube-"
+                        + n + "/LeveTube.apk", "LeveTube.apk", LT_PAGE);
+            });
+        }).start();
+    }
+
     // ================= YouTube Leve (SmartTube) =================
 
     private static final String ST_API = "https://api.github.com/repos/yuliskov/SmartTube/releases/latest";
@@ -247,7 +291,8 @@ final class Updater {
         try {
             act.startActivity(i);
         } catch (Exception e) {
-            fail(e, ApkProvider.FILE_NAME.equals(apk.getName()) ? APK : ST_PAGE);
+            fail(e, ApkProvider.FILE_NAME.equals(apk.getName()) ? APK
+                    : "LeveTube.apk".equals(apk.getName()) ? LT_PAGE : ST_PAGE);
         }
     }
 

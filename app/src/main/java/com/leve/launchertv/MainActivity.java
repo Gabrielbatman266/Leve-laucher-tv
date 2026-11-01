@@ -45,6 +45,8 @@ public class MainActivity extends Activity {
     private static final String KEY_STARS = "stars";
     private static final String KEY_FIRST = "first_done";
     private static final String KEY_ST_DONE = "st_pinned";
+    private static final String KEY_LT_DONE = "lt_pinned";
+    private static final String KEY_LT_CHECK = "lt_last_check", KEY_LT_AVAIL = "lt_available";
     private static final String KEY_MUSIC = "music_on";
 
     // Tipos de linha
@@ -54,7 +56,8 @@ public class MainActivity extends Activity {
     private static final String A_SETTINGS = "settings", A_HOME = "home", A_STARS = "stars",
             A_ALPHA = "alpha", A_HIDDEN = "hidden", A_UPDATE = "update", A_ST = "smarttube",
             A_NOW = "now_playing", A_MUSIC = "music", A_MOUSE = "mouse", A_IME = "ime",
-            A_GUARD = "guard", A_NET = "net", A_NEW = "new_version", A_SC = "sc:";
+            A_GUARD = "guard", A_NET = "net", A_NEW = "new_version", A_SC = "sc:",
+            A_LT = "levetube";
 
     private static final int REQ_HOME = 7;
 
@@ -140,6 +143,7 @@ public class MainActivity extends Activity {
         applyLook();
         ui.post(liveConfig);
         checkUpdateMaybe();
+        checkLeveTubeMaybe();
         showLastError();
     }
 
@@ -244,6 +248,20 @@ public class MainActivity extends Activity {
         }).start();
     }
 
+    /** Confere versão nova do Leve Tube no máximo a cada 3 horas, em segundo plano. */
+    private void checkLeveTubeMaybe() {
+        long now = System.currentTimeMillis();
+        if (now - prefs.getLong(KEY_LT_CHECK, 0) < 3 * 3600 * 1000L) return;
+        prefs.edit().putLong(KEY_LT_CHECK, now).apply();
+        new Thread(() -> {
+            int latest = Updater.latestLeveTube();
+            if (latest <= 0) return;
+            int mine = Updater.installedLeveTube(this);
+            prefs.edit().putInt(KEY_LT_AVAIL, mine > 0 && latest > mine ? latest : 0).apply();
+            if (mine > 0 && latest > mine) ui.post(() -> reload(null));
+        }).start();
+    }
+
     /** Se o Leve fechou sozinho, mostra o motivo uma vez (para mandar print ao Claude). */
     private boolean errorShown;
 
@@ -292,7 +310,8 @@ public class MainActivity extends Activity {
             lastPackages = new HashSet<>(apps.keySet());
         }
         firstRun(apps);
-        String smartTube = findSmartTube(apps);
+        boolean hasLeveTube = findLeveTube(apps);
+        String smartTube = hasLeveTube ? null : findSmartTube(apps);
         RemoteConfig.rename(this, apps);
 
         List<String> pinned = readList(KEY_PINNED);
@@ -313,7 +332,15 @@ public class MainActivity extends Activity {
             String label = apps.get(pkg);
             if (label != null) main.add(new Row(T_BIG, pkg, label, false));
         }
-        boolean offerSmartTube = smartTube == null;
+        // Leve Tube: oferece instalar se não tem; avisa quando sai versão nova
+        boolean offerSmartTube = false;
+        String ltRow = null;
+        if (!hasLeveTube) {
+            ltRow = getString(R.string.lt_install);
+        } else {
+            int ltNew = prefs.getInt(KEY_LT_AVAIL, 0);
+            if (ltNew > Updater.installedLeveTube(this)) ltRow = getString(R.string.lt_update, ltNew);
+        }
 
         // Música do celular tocando: aparece no topo de tudo
         LeveMusicService ms = LeveMusicService.get();
@@ -340,9 +367,12 @@ public class MainActivity extends Activity {
             }
         }
 
-        if (!main.isEmpty() || offerSmartTube) {
+        if (!main.isEmpty() || offerSmartTube || ltRow != null) {
             rows.add(new Row(T_SECTION, "", getString(R.string.sec_main), false));
             rows.addAll(main);
+            if (ltRow != null) {
+                rows.add(new Row(T_BIG_ACTION, A_LT, ltRow, false));
+            }
             if (offerSmartTube) {
                 rows.add(new Row(T_BIG_ACTION, A_ST, getString(R.string.st_install), false));
             }
@@ -431,6 +461,19 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** Leve Tube instalado: entra nos principais uma vez (depois você tira se quiser). */
+    private boolean findLeveTube(Map<String, String> apps) {
+        if (!apps.containsKey(Updater.LT_PKG)) return false;
+        apps.put(Updater.LT_PKG, getString(R.string.lt_name));
+        if (!prefs.getBoolean(KEY_LT_DONE, false)) {
+            List<String> pinned = readList(KEY_PINNED);
+            if (!pinned.contains(Updater.LT_PKG)) pinned.add(0, Updater.LT_PKG);
+            writeList(KEY_PINNED, pinned);
+            prefs.edit().putBoolean(KEY_LT_DONE, true).apply();
+        }
+        return true;
+    }
+
     /**
      * YouTube Leve = SmartTube. Se estiver instalado, aparece com esse nome
      * e entra nos principais uma vez (depois você tira se quiser).
@@ -508,6 +551,10 @@ public class MainActivity extends Activity {
                 break;
             case A_ST:
                 updater.installSmartTube();
+                break;
+            case A_LT:
+                prefs.edit().putInt(KEY_LT_AVAIL, 0).apply();
+                updater.installLeveTube();
                 break;
             case A_NEW:
                 updater.check();

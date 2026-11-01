@@ -30,6 +30,10 @@
     <string name="st_install">YouTube Leve  ·  instalar</string>
     <string name="st_searching">Procurando o YouTube Leve…</string>
     <string name="st_name">YouTube Leve</string>
+    <string name="lt_name">Leve Tube</string>
+    <string name="lt_install">Leve Tube  ·  instalar</string>
+    <string name="lt_update">Leve Tube  ·  atualizar para #%1$d</string>
+    <string name="lt_searching">Procurando o Leve Tube…</string>
 
     <string name="lm_channel">Leve Music TV</string>
     <string name="lm_title">Leve Music TV</string>

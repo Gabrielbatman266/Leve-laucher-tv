@@ -25,6 +25,7 @@
 
     <!-- Android 11+: permite ver os apps instalados que têm tela inicial -->
     <queries>
+        <package android:name="com.gabriel.levetube" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
