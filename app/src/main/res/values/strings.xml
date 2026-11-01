@@ -194,4 +194,10 @@
     <string name="rm_saved">Pronto: aperte %1$s para ligar ou desligar o mouse</string>
     <string name="rm_disabled_toast">Mouse no controle desativado</string>
     <string name="rm_need_service">Falta ligar o Leve Mouse na Acessibilidade da TV (é ele que desenha o cursor e faz os cliques).\n\nSe ele já estava ligado antes desta versão, desligue e ligue de novo para liberar o controle remoto.</string>
+
+    <string name="adapt_on">Adaptar para TV (app de celular)</string>
+    <string name="adapt_off">Tirar adaptação para TV</string>
+    <string name="adapt_on_toast">Pronto: ao abrir, o Leve libera memória e o controle vira mouse (setas movem, OK clica)</string>
+    <string name="adapt_off_toast">Adaptação desligada: o app abre normal</string>
+    <string name="adapt_need_mouse">Para o controle virar mouse dentro desse app, ligue o Leve Mouse na Acessibilidade da TV.\n\nSe ele já estava ligado antes desta versão, desligue e ligue de novo.</string>
 </resources>

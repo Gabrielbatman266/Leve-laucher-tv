@@ -269,6 +269,7 @@ public class MainActivity extends Activity {
         return true;
     }
 
+    private Set<String> adaptedNow = new HashSet<>();
     private View grown;
 
     /** Item selecionado cresce um pouquinho (animação curta, sem custo). */
@@ -482,6 +483,7 @@ public class MainActivity extends Activity {
             lastPackages = new HashSet<>(apps.keySet());
         }
         firstRun(apps);
+        autoAdaptPhoneApps(apps);
         boolean hasLeveTube = findLeveTube(apps);
         String smartTube = hasLeveTube ? null : findSmartTube(apps);
         RemoteConfig.rename(this, apps);
@@ -497,6 +499,7 @@ public class MainActivity extends Activity {
         Set<String> hidden = new HashSet<>(hiddenList);
 
         rows.clear();
+        adaptedNow = AppAdapt.list(this);
 
         // Principais (grandes)
         List<Row> main = new ArrayList<>();
@@ -693,6 +696,22 @@ public class MainActivity extends Activity {
         return found;
     }
 
+    /** Apps só de celular conhecidos (ex.: Tomato): adapta para TV e põe nos principais, uma vez. */
+    private void autoAdaptPhoneApps(Map<String, String> apps) {
+        for (Map.Entry<String, String> e : apps.entrySet()) {
+            String l = e.getValue().toLowerCase(Locale.ROOT).replace(" ", "");
+            String pkg = e.getKey();
+            if (!(l.contains("tomato") || pkg.toLowerCase(Locale.ROOT).contains("tomato"))) continue;
+            String done = "adapt_done_" + pkg;
+            if (prefs.getBoolean(done, false)) continue;
+            AppAdapt.set(this, pkg, true);
+            List<String> pinned = readList(KEY_PINNED);
+            if (!pinned.contains(pkg)) pinned.add(pkg);
+            writeList(KEY_PINNED, pinned);
+            prefs.edit().putBoolean(done, true).apply();
+        }
+    }
+
     /** Na primeira vez, o YouCine já entra nos principais. */
     private void firstRun(Map<String, String> apps) {
         if (prefs.getBoolean(KEY_FIRST, false)) return;
@@ -877,6 +896,18 @@ public class MainActivity extends Activity {
     }
 
     private void launch(String pkg) {
+        if (AppAdapt.is(this, pkg)) {
+            // app de celular: libera memória antes (o box respira) e abre
+            new Thread(() -> {
+                AppAdapt.freeMemory(this, pkg);
+                ui.post(() -> launchNow(pkg));
+            }).start();
+            return;
+        }
+        launchNow(pkg);
+    }
+
+    private void launchNow(String pkg) {
         PackageManager pm = getPackageManager();
         Intent i = pm.getLeanbackLaunchIntentForPackage(pkg);
         if (i == null) i = pm.getLaunchIntentForPackage(pkg);
@@ -904,6 +935,8 @@ public class MainActivity extends Activity {
         opts.add(getString(isMain ? R.string.unpin : R.string.pin));
         opts.add(getString(R.string.move));
         if (!isMain) opts.add(getString(row.hidden ? R.string.unhide : R.string.hide));
+        final boolean adapted = AppAdapt.is(this, row.id);
+        opts.add(getString(adapted ? R.string.adapt_off : R.string.adapt_on));
         opts.add(getString(R.string.app_info));
 
         new AlertDialog.Builder(this)
@@ -934,6 +967,23 @@ public class MainActivity extends Activity {
                         List<String> h = readList(KEY_HIDDEN);
                         h.remove(row.id);
                         writeList(KEY_HIDDEN, h);
+                        reload(row.id);
+                    } else if (c.equals(getString(R.string.adapt_on)) || c.equals(getString(R.string.adapt_off))) {
+                        AppAdapt.set(this, row.id, !adapted);
+                        if (!adapted && RemoteHub.mouse == null) {
+                            new AlertDialog.Builder(this)
+                                    .setTitle(R.string.mouse_name)
+                                    .setMessage(R.string.adapt_need_mouse)
+                                    .setPositiveButton(R.string.mouse_open_settings, (x, w) -> {
+                                        HomeGuard.pause();
+                                        Shortcuts.open(this, Shortcuts.ACCESSIBILITY);
+                                    })
+                                    .setNegativeButton(R.string.upd_later, null)
+                                    .show();
+                        } else {
+                            Toast.makeText(this, !adapted ? R.string.adapt_on_toast : R.string.adapt_off_toast,
+                                    Toast.LENGTH_LONG).show();
+                        }
                         reload(row.id);
                     } else {
                         HomeGuard.pause();
@@ -1186,9 +1236,9 @@ public class MainActivity extends Activity {
             if (A_NOW.equals(r.id)) {
                 label.setText(r.label);
             } else if (r.type == T_BIG || r.type == T_BIG_ACTION) {
-                label.setText("★  " + r.label);
+                label.setText("★  " + r.label + (r.isApp() && adaptedNow.contains(r.id) ? "   ·  modo TV" : ""));
             } else {
-                label.setText(r.label);
+                label.setText(r.label + (r.isApp() && adaptedNow.contains(r.id) ? "   ·  modo TV" : ""));
             }
             if (icon != null && !showIcons && r.type != T_BIG_ACTION) {
                 icon.setTag(null);

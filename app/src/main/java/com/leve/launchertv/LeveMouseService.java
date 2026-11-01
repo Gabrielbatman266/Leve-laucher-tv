@@ -58,6 +58,8 @@ public class LeveMouseService extends AccessibilityService {
     // ---------- Mouse pelo controle remoto ----------
     static final String PREF_RM_KEY = "rm_key"; // tecla que liga/desliga o mouse (0 = recurso desligado)
     private boolean remoteMode;
+    private boolean autoMode;           // ligado sozinho porque o app aberto é "adaptado para TV"
+    private java.util.Set<String> adapted = new java.util.HashSet<>();
     private int rmKey;
     private long okDownAt;
     private long lastEdgeScroll;
@@ -191,17 +193,18 @@ public class LeveMouseService extends AccessibilityService {
     /** Lê a tecla escolhida no launcher e liga/desliga a escuta das teclas do controle. */
     void refreshRemoteMouse() {
         rmKey = getSharedPreferences("leve", MODE_PRIVATE).getInt(PREF_RM_KEY, 0);
+        adapted = AppAdapt.list(this);
         if (Build.VERSION.SDK_INT < 18) return;
         android.accessibilityservice.AccessibilityServiceInfo info = getServiceInfo();
         if (info == null) return;
         int flag = android.accessibilityservice.AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS;
-        if (rmKey != 0) info.flags |= flag;
+        if (rmKey != 0 || !adapted.isEmpty()) info.flags |= flag;
         else info.flags &= ~flag;
         try {
             setServiceInfo(info);
         } catch (Throwable ignored) {
         }
-        if (rmKey == 0 && remoteMode) setRemoteMode(false);
+        if (rmKey == 0 && adapted.isEmpty() && remoteMode) setRemoteMode(false);
     }
 
     boolean isRemoteMode() {
@@ -212,11 +215,14 @@ public class LeveMouseService extends AccessibilityService {
         h.removeCallbacks(rmAutoOff);
         if (remoteMode == on) return;
         remoteMode = on;
+        if (!on) autoMode = false;
         if (on) {
             if (cursor == null) addCursor();
             showCursor();
-            h.postDelayed(rmAutoOff, 90_000);
-            RemoteHub.toast("Mouse ligado  ·  setas movem  ·  OK clica  ·  segure OK = toque longo  ·  "
+            if (!autoMode) h.postDelayed(rmAutoOff, 90_000);
+            RemoteHub.toast(autoMode
+                    ? "Modo TV: setas movem o cursor  ·  OK clica  ·  segure OK = toque longo"
+                    : "Mouse ligado  ·  setas movem  ·  OK clica  ·  segure OK = toque longo  ·  "
                     + keyName(rmKey) + " desliga");
         } else {
             hideCursorNow();
@@ -262,6 +268,7 @@ public class LeveMouseService extends AccessibilityService {
             return true;
         }
         if (!remoteMode) return false;
+        if (keyboardOnScreen()) return false; // digitando: as setas vão para o teclado
         switch (k) {
             case KeyEvent.KEYCODE_DPAD_UP:
             case KeyEvent.KEYCODE_DPAD_DOWN:
@@ -301,7 +308,35 @@ public class LeveMouseService extends AccessibilityService {
 
     private void bumpRemote() {
         h.removeCallbacks(rmAutoOff);
-        h.postDelayed(rmAutoOff, 90_000);
+        if (!autoMode) h.postDelayed(rmAutoOff, 90_000);
+    }
+
+    private boolean keyboardOnScreen() {
+        if (Build.VERSION.SDK_INT < 21) return false;
+        try {
+            for (AccessibilityWindowInfo w : getWindows()) {
+                if (w.getType() == AccessibilityWindowInfo.TYPE_INPUT_METHOD) return true;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
+    /** App adaptado na frente: liga o cursor; saiu para outro app: desliga. */
+    private void followForegroundApp(String pkg, String cls) {
+        if (adapted.isEmpty() || pkg == null) return;
+        if (pkg.startsWith("com.android.systemui") || pkg.contains("inputmethod")) return;
+        if (cls != null && (cls.contains("InputMethod") || cls.contains("SoftInputWindow")
+                || cls.startsWith("android.widget.") || cls.contains("Toast"))) return;
+        if (adapted.contains(pkg)) {
+            if (!remoteMode) {
+                autoMode = true;
+                setRemoteMode(true);
+            }
+        } else if (autoMode && !pkg.equals(getPackageName() + ".keyboard")) {
+            if (pkg.equals(getPackageName()) && cls != null && cls.contains("Keyboard")) return;
+            setRemoteMode(false);
+        }
     }
 
     /** Cursor na borda e seta de novo: rola a página naquela direção. */
@@ -647,6 +682,7 @@ public class LeveMouseService extends AccessibilityService {
                 if (pkg != null && HomeGuard.isOtherHome(this, pkg.toString(), cls == null ? null : cls.toString())) {
                     HomeGuard.bringLeve(this, pkg.toString());
                 }
+                followForegroundApp(pkg == null ? null : pkg.toString(), cls == null ? null : cls.toString());
             } catch (Throwable t) {
                 LeveApp.log("LeveMouse.homeGuard", t);
             }
