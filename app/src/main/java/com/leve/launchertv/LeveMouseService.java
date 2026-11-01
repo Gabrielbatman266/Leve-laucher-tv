@@ -116,6 +116,7 @@ public class LeveMouseService extends AccessibilityService {
 
     private void disconnect() {
         if (RemoteHub.mouse == this) RemoteHub.mouse = null;
+        setLandscapeLock(false);
         dragging = false;
         removeCursor();
         RemoteHub.broadcastStatus();
@@ -134,7 +135,7 @@ public class LeveMouseService extends AccessibilityService {
         if (Build.VERSION.SDK_INT < 22 || cursor != null) return;
         cursor = new ImageView(this);
         cursor.setImageResource(R.drawable.cursor);
-        int size = Math.round(30 * getResources().getDisplayMetrics().density);
+        int size = Math.round(46 * getResources().getDisplayMetrics().density); // grande, visível de longe
         cursorPx = size;
         lp = new WindowManager.LayoutParams(size, size,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
@@ -218,6 +219,9 @@ public class LeveMouseService extends AccessibilityService {
         if (!on) autoMode = false;
         if (on) {
             if (cursor == null) addCursor();
+            readScreen();
+            x = screenW / 2f;
+            y = screenH / 2f;
             showCursor();
             if (!autoMode) h.postDelayed(rmAutoOff, 90_000);
             RemoteHub.toast(autoMode
@@ -277,7 +281,7 @@ public class LeveMouseService extends AccessibilityService {
                 if (down) {
                     // passo pequeno no 1º toque (precisão); segurando, acelera
                     int rep = e.getRepeatCount();
-                    float step = screenW / 1920f * (rep == 0 ? 14 : Math.min(70, 14 + rep * 5));
+                    float step = screenW / 1920f * (rep == 0 ? 26 : Math.min(110, 26 + rep * 9));
                     float dx = k == KeyEvent.KEYCODE_DPAD_LEFT ? -step : k == KeyEvent.KEYCODE_DPAD_RIGHT ? step : 0;
                     float dy = k == KeyEvent.KEYCODE_DPAD_UP ? -step : k == KeyEvent.KEYCODE_DPAD_DOWN ? step : 0;
                     float nx = clamp(x + dx, 0, screenW - 2), ny = clamp(y + dy, 0, screenH - 2);
@@ -301,6 +305,18 @@ public class LeveMouseService extends AccessibilityService {
                 }
                 bumpRemote();
                 return true;
+            case KeyEvent.KEYCODE_CHANNEL_UP:
+            case KeyEvent.KEYCODE_PAGE_UP:
+            case KeyEvent.KEYCODE_MEDIA_REWIND:
+                if (down) { lastEdgeScroll = 0; edgeScroll(0, -1); }
+                bumpRemote();
+                return true;
+            case KeyEvent.KEYCODE_CHANNEL_DOWN:
+            case KeyEvent.KEYCODE_PAGE_DOWN:
+            case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
+                if (down) { lastEdgeScroll = 0; edgeScroll(0, 1); }
+                bumpRemote();
+                return true;
             default:
                 return false; // Voltar, Home, volume etc. continuam normais
         }
@@ -322,6 +338,42 @@ public class LeveMouseService extends AccessibilityService {
         return false;
     }
 
+    private View rotLock;
+
+    /** Janela invisível de 1px pedindo paisagem: força app de celular a ficar deitado na TV. */
+    private void setLandscapeLock(boolean on) {
+        if (Build.VERSION.SDK_INT < 22 || wm == null) return;
+        if (on == (rotLock != null)) return;
+        if (on) {
+            rotLock = new View(this);
+            WindowManager.LayoutParams p = new WindowManager.LayoutParams(1, 1,
+                    WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                            | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                            | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    PixelFormat.TRANSPARENT);
+            p.gravity = Gravity.TOP | Gravity.LEFT;
+            p.screenOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
+            try {
+                wm.addView(rotLock, p);
+            } catch (Exception e) {
+                rotLock = null;
+            }
+        } else {
+            try {
+                wm.removeView(rotLock);
+            } catch (Exception ignored) {
+            }
+            rotLock = null;
+        }
+        // a tela gira: recalcula o tamanho para o cursor não sair dela
+        h.postDelayed(() -> {
+            readScreen();
+            x = clamp(x, 0, screenW - 2);
+            y = clamp(y, 0, screenH - 2);
+        }, 600);
+    }
+
     /** App adaptado na frente: liga o cursor; saiu para outro app: desliga. */
     private void followForegroundApp(String pkg, String cls) {
         if (adapted.isEmpty() || pkg == null) return;
@@ -329,6 +381,7 @@ public class LeveMouseService extends AccessibilityService {
         if (cls != null && (cls.contains("InputMethod") || cls.contains("SoftInputWindow")
                 || cls.startsWith("android.widget.") || cls.contains("Toast"))) return;
         if (adapted.contains(pkg)) {
+            setLandscapeLock(true);
             if (!remoteMode) {
                 autoMode = true;
                 setRemoteMode(true);
@@ -336,6 +389,10 @@ public class LeveMouseService extends AccessibilityService {
         } else if (autoMode && !pkg.equals(getPackageName() + ".keyboard")) {
             if (pkg.equals(getPackageName()) && cls != null && cls.contains("Keyboard")) return;
             setRemoteMode(false);
+        }
+        if (!adapted.contains(pkg) && rotLock != null) {
+            if (pkg.equals(getPackageName()) && cls != null && cls.contains("Keyboard")) return;
+            setLandscapeLock(false);
         }
     }
 
