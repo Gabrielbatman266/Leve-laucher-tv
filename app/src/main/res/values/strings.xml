@@ -11,8 +11,8 @@
     <string name="settings">Configurações da TV</string>
     <string name="home_yes">Tela inicial padrão: Leve ✓  (trocar)</string>
     <string name="home_no">Definir como tela inicial padrão</string>
-    <string name="stars_on">Estrelas no fundo: ligadas</string>
-    <string name="stars_off">Estrelas no fundo: desligadas</string>
+    <string name="stars_on">Animação do fundo: ligada</string>
+    <string name="stars_off">Animação do fundo: desligada (mais leve)</string>
     <string name="alpha">Voltar à ordem alfabética</string>
     <string name="show_hidden">Mostrar ocultos (%d)</string>
     <string name="hide_hidden">Esconder ocultos</string>
@@ -207,4 +207,7 @@
     <string name="sound_off">sem som</string>
     <string name="sound_system">o do box</string>
     <string name="rm_use_back">Segurar Voltar (recomendado)</string>
+    <string name="theme_row">Tema: %1$s  ·  trocar</string>
+    <string name="theme_title">Escolha o tema (já aparece no fundo)</string>
+    <string name="theme_done">Pronto</string>
 </resources>

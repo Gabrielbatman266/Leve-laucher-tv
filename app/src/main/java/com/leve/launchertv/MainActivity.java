@@ -301,8 +301,12 @@ public class MainActivity extends Activity {
         v.animate().scaleX(1.04f).scaleY(1.04f).setDuration(90).start();
     }
 
+    private String theme() {
+        return prefs.getString(KEY_THEME, "amoled");
+    }
+
     private boolean amoled() {
-        return !"ps2".equals(prefs.getString(KEY_THEME, "amoled"));
+        return "amoled".equals(theme());
     }
 
     @Override
@@ -314,7 +318,7 @@ public class MainActivity extends Activity {
         showIcons = prefs.getBoolean(KEY_ICONS, true);
         setupTts(prefs.getBoolean(KEY_TTS, false));
         applySoundStyle();
-        stars.setAmoled(amoled());
+        stars.setTheme(theme());
         stars.setAnimate(prefs.getBoolean(KEY_STARS, !amoled()));
         stars.setRunning(true);
         reload(null);
@@ -362,7 +366,7 @@ public class MainActivity extends Activity {
             hint.setTextColor(msg.isEmpty() ? getResources().getColor(R.color.dim) : getResources().getColor(R.color.move_line));
         }
         org.json.JSONArray sky = j.optJSONArray("sky");
-        if (sky != null && sky.length() == 3 && !amoled()) {
+        if (sky != null && sky.length() == 3 && "ps2".equals(theme())) {
             stars.setSky(new int[]{
                     RemoteConfig.color(sky.optString(0), 0xFF01020A),
                     RemoteConfig.color(sky.optString(1), 0xFF040B2A),
@@ -395,7 +399,7 @@ public class MainActivity extends Activity {
         String a = RemoteConfig.get(this).optString("accent", "");
         boolean strong = prefs.getBoolean(KEY_HL, false);
         if (a.isEmpty() && !strong && amoled()) return getResources().getDrawable(R.drawable.selector);
-        int c = strong ? 0xFFFFD400 : a.isEmpty() ? 0xFF30C0FF : RemoteConfig.color(a, 0xFF30C0FF);
+        int c = strong ? 0xFFFFD400 : a.isEmpty() ? StarsView.accentFor(theme()) : RemoteConfig.color(a, 0xFF30C0FF);
         float dp = getResources().getDisplayMetrics().density;
         if (strong) {
             android.graphics.drawable.GradientDrawable on = new android.graphics.drawable.GradientDrawable();
@@ -608,7 +612,7 @@ public class MainActivity extends Activity {
 
         // ---- Aparência
         rows.add(new Row(T_SECTION, "", getString(R.string.sec_look), false));
-        rows.add(new Row(T_ACTION, A_THEME, getString(amoled() ? R.string.theme_amoled : R.string.theme_ps2), false));
+        rows.add(new Row(T_ACTION, A_THEME, getString(R.string.theme_row, StarsView.nameFor(theme())), false));
         rows.add(new Row(T_ACTION, A_STARS,
                 getString(prefs.getBoolean(KEY_STARS, !amoled()) ? R.string.stars_on : R.string.stars_off), false));
         rows.add(new Row(T_ACTION, A_ICONS, getString(showIcons ? R.string.icons_on : R.string.icons_off), false));
@@ -811,15 +815,26 @@ public class MainActivity extends Activity {
                 prefs.edit().putBoolean(KEY_ICONS, showIcons).apply();
                 reload(A_ICONS);
                 break;
-            case A_THEME:
-                boolean toPs2 = amoled();
-                prefs.edit().putString(KEY_THEME, toPs2 ? "ps2" : "amoled").remove(KEY_STARS).apply();
-                stars.setAmoled(!toPs2);
-                stars.setAnimate(prefs.getBoolean(KEY_STARS, toPs2));
-                stars.setRunning(true);
-                list.setSelector(selectorDrawable());
-                reload(A_THEME);
+            case A_THEME: {
+                final String cur = theme();
+                int sel = 0;
+                for (int t = 0; t < StarsView.KEYS.length; t++) if (StarsView.KEYS[t].equals(cur)) sel = t;
+                new AlertDialog.Builder(this)
+                        .setTitle(R.string.theme_title)
+                        .setSingleChoiceItems(StarsView.NAMES, sel, (dlg, which) -> {
+                            String key = StarsView.KEYS[which];
+                            prefs.edit().putString(KEY_THEME, key).remove(KEY_STARS).apply();
+                            stars.setTheme(key);
+                            stars.setAnimate(prefs.getBoolean(KEY_STARS, !"amoled".equals(key)));
+                            stars.setRunning(true);
+                            list.setSelector(selectorDrawable());
+                            fx.play(SoundFx.SIDE);
+                            reload(A_THEME);
+                        })
+                        .setPositiveButton(R.string.theme_done, null)
+                        .show();
                 break;
+            }
             case A_STARS:
                 boolean on = !prefs.getBoolean(KEY_STARS, !amoled());
                 prefs.edit().putBoolean(KEY_STARS, on).putBoolean("stars_user_set", true).apply();
