@@ -35,12 +35,13 @@ import java.util.List;
 public class LeveMouseService extends AccessibilityService {
 
     private static final long HIDE_AFTER_MS = 5000;
-    private static final long MOVE_INTERVAL_MS = 33; // ~30 quadros por segundo
+    private static final long MOVE_INTERVAL_MS = 16; // ~60 quadros por segundo
     private static final long DRAG_SEGMENT_MS = 40;
 
     private final Handler h = new Handler(Looper.getMainLooper());
     private WindowManager wm;
     private ImageView cursor;
+    private android.widget.FrameLayout cursorRoot; // janela de tela cheia, transparente; a setinha anda por translação (GPU)
     private WindowManager.LayoutParams lp;
     private float x, y;
     private int screenW = 1920, screenH = 1080;
@@ -136,11 +137,14 @@ public class LeveMouseService extends AccessibilityService {
 
     private void addCursor() {
         if (Build.VERSION.SDK_INT < 22 || cursor != null) return;
+        cursorRoot = new android.widget.FrameLayout(this);
         cursor = new ImageView(this);
         cursor.setImageResource(R.drawable.cursor);
         int size = Math.round(46 * getResources().getDisplayMetrics().density); // grande, visível de longe
         cursorPx = size;
-        lp = new WindowManager.LayoutParams(size, size,
+        cursorRoot.addView(cursor, new android.widget.FrameLayout.LayoutParams(size, size));
+        lp = new WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
@@ -149,42 +153,34 @@ public class LeveMouseService extends AccessibilityService {
                         | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
                 PixelFormat.TRANSLUCENT);
         lp.gravity = Gravity.TOP | Gravity.LEFT;
-        lp.x = (int) x;
-        lp.y = (int) y;
-        // sem animação de janela: mover o cursor não dispara transições
         lp.windowAnimations = 0;
         cursor.setVisibility(View.GONE);
         try {
-            wm.addView(cursor, lp);
+            wm.addView(cursorRoot, lp);
         } catch (Exception e) {
             cursor = null;
+            cursorRoot = null;
         }
     }
 
     private void removeCursor() {
         h.removeCallbacks(hide);
-        if (cursor != null) {
+        if (cursorRoot != null) {
             try {
-                wm.removeView(cursor);
+                wm.removeView(cursorRoot);
             } catch (Exception ignored) {
             }
-            cursor = null;
         }
+        cursorRoot = null;
+        cursor = null;
     }
 
+    /** Só move a imagem (sem refazer a janela): fica liso até em box fraco. */
     private void showCursor() {
         if (cursor == null) return;
-        int nx = Math.round(x), ny = Math.round(y);
-        boolean wasHidden = cursor.getVisibility() != View.VISIBLE;
-        if (wasHidden) cursor.setVisibility(View.VISIBLE);
-        if (wasHidden || nx != lp.x || ny != lp.y) {
-            lp.x = nx;
-            lp.y = ny;
-            try {
-                wm.updateViewLayout(cursor, lp);
-            } catch (Exception ignored) {
-            }
-        }
+        if (cursor.getVisibility() != View.VISIBLE) cursor.setVisibility(View.VISIBLE);
+        cursor.setTranslationX(x);
+        cursor.setTranslationY(y);
         h.removeCallbacks(hide);
         if (!remoteMode) h.postDelayed(hide, dragging ? HIDE_AFTER_MS * 3 : HIDE_AFTER_MS);
     }
@@ -222,7 +218,7 @@ public class LeveMouseService extends AccessibilityService {
         if (!on) {
             autoMode = false;
             holding = false;
-            h.removeCallbacks(holdTick);
+            android.view.Choreographer.getInstance().removeFrameCallback(holdTick);
         }
         if (on) {
             if (cursor == null) addCursor();
@@ -340,15 +336,20 @@ public class LeveMouseService extends AccessibilityService {
     private long holdSince;
     private boolean holding;
     private final Runnable holdStop = () -> holding = false;
-    private final Runnable holdTick = new Runnable() {
+    private long lastFrameNs;
+    private final android.view.Choreographer.FrameCallback holdTick = new android.view.Choreographer.FrameCallback() {
         @Override
-        public void run() {
+        public void doFrame(long now) {
             if (!holding) return;
+            float dt = lastFrameNs == 0 ? 0.016f : Math.min(0.05f, (now - lastFrameNs) / 1e9f);
+            lastFrameNs = now;
             long held = SystemClock.uptimeMillis() - holdSince;
-            // começa devagar (mira) e vai acelerando até atravessar a tela em ~1 s
-            float speed = screenW / 1920f * (held < 250 ? 5 : Math.min(42, 5 + (held - 250) / 18f));
-            moveBy(holdKey, speed);
-            h.postDelayed(this, 16);
+            // px/s (tela 1080p): 0,25 s devagar para mirar, depois acelera suave até o máximo em ~1 s
+            float k = Math.max(0f, Math.min(1f, (held - 250) / 900f));
+            k = k * k * (3 - 2 * k); // curva suave, sem tranco
+            float speed = screenW / 1920f * (320 + 2300 * k);
+            moveBy(holdKey, speed * dt);
+            android.view.Choreographer.getInstance().postFrameCallback(this);
         }
     };
 
@@ -358,9 +359,11 @@ public class LeveMouseService extends AccessibilityService {
         holding = true;
         holdKey = k;
         holdSince = SystemClock.uptimeMillis();
-        moveBy(k, screenW / 1920f * 24); // um toque = um passo firme
-        h.removeCallbacks(holdTick);
-        h.postDelayed(holdTick, 180);
+        moveBy(k, screenW / 1920f * 22); // um toque = um passo firme
+        android.view.Choreographer ch = android.view.Choreographer.getInstance();
+        ch.removeFrameCallback(holdTick);
+        lastFrameNs = 0;
+        ch.postFrameCallbackDelayed(holdTick, 150);
     }
 
     private void holdRelease(int k) {
