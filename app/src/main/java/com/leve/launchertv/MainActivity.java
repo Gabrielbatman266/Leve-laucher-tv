@@ -204,7 +204,7 @@ public class MainActivity extends Activity {
         final AlertDialog d = new AlertDialog.Builder(this)
                 .setTitle(R.string.rm_title)
                 .setMessage(R.string.rm_learn)
-                .setPositiveButton(R.string.rm_use_play, (x, w) -> saveRemoteKey(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
+                .setPositiveButton(R.string.rm_use_back, (x, w) -> saveRemoteKey(LeveMouseService.HOLD_BACK))
                 .setNeutralButton(R.string.rm_disable, (x, w) -> saveRemoteKey(0))
                 .setNegativeButton(R.string.upd_later, null)
                 .create();
@@ -635,7 +635,7 @@ public class MainActivity extends Activity {
         rows.add(new Row(T_ACTION, A_MOUSE, !mouseOn ? getString(R.string.mouse_off)
                 : ip.isEmpty() ? getString(R.string.mouse_on_noip)
                 : getString(R.string.mouse_on, ip + ":" + LeveMusicService.PORT), false));
-        int rk = prefs.getInt(LeveMouseService.PREF_RM_KEY, 0);
+        int rk = prefs.getInt(LeveMouseService.PREF_RM_KEY, LeveMouseService.HOLD_BACK);
         rows.add(new Row(T_ACTION, A_RMOUSE, rk == 0 ? getString(R.string.rm_off)
                 : RemoteHub.mouse == null ? getString(R.string.rm_need, LeveMouseService.keyName(rk))
                 : getString(R.string.rm_on, LeveMouseService.keyName(rk)), false));

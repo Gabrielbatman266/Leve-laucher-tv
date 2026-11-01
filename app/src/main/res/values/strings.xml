@@ -188,7 +188,7 @@
     <string name="rm_on">Mouse no controle remoto: ligado ✓  ·  tecla %1$s</string>
     <string name="rm_need">Mouse no controle remoto: falta ativar o Leve Mouse  ·  tecla %1$s</string>
     <string name="rm_title">Mouse no controle remoto</string>
-    <string name="rm_learn">Para apps que só funcionam com toque, o controle vira mouse:\n\n• Aperte uma vez a tecla escolhida: aparece o cursor.\n• Setas movem (segurando, vai mais rápido). Na borda, rola a página.\n• OK clica. Segurar OK = toque longo.\n• Aperte a tecla de novo para voltar ao normal.\n\nAPERTE AGORA a tecla do controle que você quer usar (Play/Pausa, Menu, um botão colorido…), ou escolha abaixo.</string>
+    <string name="rm_learn">Para apps que só funcionam com toque, o controle vira mouse:\n\n• Segure Voltar (ou a tecla escolhida): aparece o cursor.\n• Setas movem (segurando, vai mais rápido). Na borda, rola a página.\n• OK clica. Segurar OK = toque longo.\n• Segure de novo para voltar ao normal.\n\nPadrão: SEGURAR o Voltar por 1 segundo (toque rápido continua sendo Voltar).\n\nSe preferir outra tecla, aperte ela agora (Menu, um botão colorido…).</string>
     <string name="rm_use_play">Usar Play/Pausa</string>
     <string name="rm_disable">Desativar</string>
     <string name="rm_saved">Pronto: aperte %1$s para ligar ou desligar o mouse</string>
@@ -206,4 +206,5 @@
     <string name="sound_ps2">sininho de console</string>
     <string name="sound_off">sem som</string>
     <string name="sound_system">o do box</string>
+    <string name="rm_use_back">Segurar Voltar (recomendado)</string>
 </resources>

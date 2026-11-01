@@ -57,6 +57,9 @@ public class LeveMouseService extends AccessibilityService {
 
     // ---------- Mouse pelo controle remoto ----------
     static final String PREF_RM_KEY = "rm_key"; // tecla que liga/desliga o mouse (0 = recurso desligado)
+    static final int HOLD_BACK = -1;            // padrão: segurar Voltar (todo controle tem)
+    private long backDownAt;
+    private boolean backToggled;
     private boolean remoteMode;
     private boolean autoMode;           // ligado sozinho porque o app aberto é "adaptado para TV"
     private java.util.Set<String> adapted = new java.util.HashSet<>();
@@ -193,7 +196,7 @@ public class LeveMouseService extends AccessibilityService {
 
     /** Lê a tecla escolhida no launcher e liga/desliga a escuta das teclas do controle. */
     void refreshRemoteMouse() {
-        rmKey = getSharedPreferences("leve", MODE_PRIVATE).getInt(PREF_RM_KEY, 0);
+        rmKey = getSharedPreferences("leve", MODE_PRIVATE).getInt(PREF_RM_KEY, HOLD_BACK);
         adapted = AppAdapt.list(this);
         if (Build.VERSION.SDK_INT < 18) return;
         android.accessibilityservice.AccessibilityServiceInfo info = getServiceInfo();
@@ -237,6 +240,7 @@ public class LeveMouseService extends AccessibilityService {
     static String keyName(int code) {
         switch (code) {
             case 0: return "nenhuma";
+            case HOLD_BACK: return "segurar Voltar";
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE: return "Play/Pausa";
             case KeyEvent.KEYCODE_MENU: return "Menu";
             case KeyEvent.KEYCODE_SETTINGS: return "Configurações";
@@ -267,7 +271,23 @@ public class LeveMouseService extends AccessibilityService {
     private boolean handleRemoteKey(KeyEvent e) {
         int k = e.getKeyCode();
         boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
-        if (rmKey != 0 && k == rmKey) {
+        if (rmKey == HOLD_BACK && k == KeyEvent.KEYCODE_BACK) {
+            // segurar Voltar = liga/desliga o mouse; toque rápido = Voltar normal
+            if (down) {
+                if (e.getRepeatCount() == 0) {
+                    backDownAt = e.getEventTime();
+                    backToggled = false;
+                } else if (!backToggled && e.getEventTime() - backDownAt >= 700) {
+                    backToggled = true;
+                    setRemoteMode(!remoteMode);
+                }
+            } else if (!backToggled && !e.isCanceled()) {
+                if (e.getEventTime() - backDownAt >= 700) setRemoteMode(!remoteMode);
+                else performGlobalAction(GLOBAL_ACTION_BACK);
+            }
+            return true;
+        }
+        if (rmKey > 0 && k == rmKey) {
             if (!down && !e.isCanceled()) setRemoteMode(!remoteMode);
             return true;
         }
