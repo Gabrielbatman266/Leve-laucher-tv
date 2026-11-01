@@ -6,6 +6,17 @@
         <item name="android:windowAnimationStyle">@null</item>
         <item name="android:windowDisablePreview">true</item>
         <item name="android:windowContentOverlay">@null</item>
+        <item name="android:alertDialogTheme">@style/LeveDialog</item>
+    </style>
+
+    <!-- Janelas de aviso em preto puro, texto grande -->
+    <style name="LeveDialog" parent="@android:style/Theme.Material.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/dialog_bg</item>
+        <item name="android:colorBackground">#000000</item>
+        <item name="android:colorAccent">#FFFFFF</item>
+        <item name="android:textColorPrimary">#FFFFFF</item>
+        <item name="android:textColorSecondary">#D0D0D0</item>
+        <item name="android:textSize">20sp</item>
     </style>
 
     <style name="NetRow">

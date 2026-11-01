@@ -48,6 +48,13 @@ public class MainActivity extends Activity {
     private static final String KEY_LT_DONE = "lt_pinned";
     private static final String KEY_LT_CHECK = "lt_last_check", KEY_LT_AVAIL = "lt_available";
     private static final String KEY_MUSIC = "music_on";
+    // Aparência e acessibilidade
+    private static final String KEY_THEME = "theme";        // "amoled" (padrão) ou "ps2"
+    private static final String KEY_TEXT = "text_scale";    // 0 normal, 1 grande, 2 muito grande
+    private static final String KEY_HL = "strong_select";   // borda amarela grossa
+    private static final String KEY_TTS = "speak";          // fala o nome do que está selecionado
+    private static final String KEY_ICONS = "icons_on";
+    private static final float[] TEXT_SCALES = {1f, 1.25f, 1.5f};
 
     // Tipos de linha
     static final int T_SECTION = 0, T_BIG = 1, T_APP = 2, T_ACTION = 3, T_BIG_ACTION = 4;
@@ -57,7 +64,9 @@ public class MainActivity extends Activity {
             A_ALPHA = "alpha", A_HIDDEN = "hidden", A_UPDATE = "update", A_ST = "smarttube",
             A_NOW = "now_playing", A_MUSIC = "music", A_MOUSE = "mouse", A_IME = "ime",
             A_GUARD = "guard", A_NET = "net", A_NEW = "new_version", A_SC = "sc:",
-            A_LT = "levetube";
+            A_LT = "levetube",
+            A_TEXT = "text", A_HL = "highlight", A_TTS = "tts", A_ICONS = "icons", A_THEME = "theme",
+            A_TV_ACCESS = "tv_access";
 
     private static final int REQ_HOME = 7;
 
@@ -72,6 +81,11 @@ public class MainActivity extends Activity {
     private Updater updater;
     private boolean showHidden = false;
     private Set<String> lastPackages = new HashSet<>();
+
+    private android.speech.tts.TextToSpeech tts;
+    private boolean ttsReady;
+    private float textScale = 1f;
+    private boolean showIcons = true;
 
     private int moveIndex = -1;          // linha sendo movida (-1 = não está movendo)
     private boolean swallowKeyUp = false;
@@ -128,6 +142,56 @@ public class MainActivity extends Activity {
             showOptions(pos);
             return true;
         });
+        list.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) {
+                if (pos >= 0 && pos < rows.size()) speak(rows.get(pos).label);
+            }
+
+            @Override
+            public void onNothingSelected(android.widget.AdapterView<?> p) {
+            }
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (tts != null) tts.shutdown();
+        tts = null;
+        super.onDestroy();
+    }
+
+    // ================= Acessibilidade =================
+
+    /** Liga a voz só quando a opção está ativa (não gasta nada desligada). */
+    private void setupTts(boolean on) {
+        if (!on) {
+            if (tts != null) tts.shutdown();
+            tts = null;
+            ttsReady = false;
+            return;
+        }
+        if (tts != null) return;
+        tts = new android.speech.tts.TextToSpeech(getApplicationContext(), status -> {
+            if (tts == null) return;
+            if (status == android.speech.tts.TextToSpeech.SUCCESS) {
+                int r = tts.setLanguage(new Locale("pt", "BR"));
+                if (r < 0) tts.setLanguage(Locale.getDefault());
+                ttsReady = true;
+            } else {
+                Toast.makeText(this, R.string.tts_fail, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void speak(String text) {
+        if (!ttsReady || tts == null || text == null) return;
+        String clean = text.replace("★", "").replace("✓", "").replace("·", ",").replace("♪", "").trim();
+        tts.speak(clean, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "leve");
+    }
+
+    private boolean amoled() {
+        return !"ps2".equals(prefs.getString(KEY_THEME, "amoled"));
     }
 
     @Override
@@ -135,7 +199,11 @@ public class MainActivity extends Activity {
         super.onResume();
         disableFakeHomeIfUnused();
         if (prefs.getBoolean(KEY_MUSIC, true)) LeveMusicService.start(this);
-        stars.setAnimate(prefs.getBoolean(KEY_STARS, true));
+        textScale = TEXT_SCALES[Math.max(0, Math.min(2, prefs.getInt(KEY_TEXT, 0)))];
+        showIcons = prefs.getBoolean(KEY_ICONS, true);
+        setupTts(prefs.getBoolean(KEY_TTS, false));
+        stars.setAmoled(amoled());
+        stars.setAnimate(prefs.getBoolean(KEY_STARS, !amoled()));
         stars.setRunning(true);
         reload(null);
         list.requestFocus();
@@ -182,13 +250,13 @@ public class MainActivity extends Activity {
             hint.setTextColor(msg.isEmpty() ? getResources().getColor(R.color.dim) : getResources().getColor(R.color.move_line));
         }
         org.json.JSONArray sky = j.optJSONArray("sky");
-        if (sky != null && sky.length() == 3) {
+        if (sky != null && sky.length() == 3 && !amoled()) {
             stars.setSky(new int[]{
                     RemoteConfig.color(sky.optString(0), 0xFF01020A),
                     RemoteConfig.color(sky.optString(1), 0xFF040B2A),
                     RemoteConfig.color(sky.optString(2), 0xFF0A1A4A)});
         }
-        if (j.has("stars") && !prefs.getBoolean("stars_user_set", false)) {
+        if (j.has("stars") && !prefs.getBoolean("stars_user_set", false) && !amoled()) {
             stars.setAnimate(j.optBoolean("stars", true));
         }
         int clock = j.optInt("clockSize", 0);
@@ -213,9 +281,22 @@ public class MainActivity extends Activity {
     /** Seleção na cor "accent" da configuração (ou a azul padrão). */
     private android.graphics.drawable.Drawable selectorDrawable() {
         String a = RemoteConfig.get(this).optString("accent", "");
-        if (a.isEmpty()) return getResources().getDrawable(R.drawable.selector);
-        int c = RemoteConfig.color(a, 0xFF30C0FF);
+        boolean strong = prefs.getBoolean(KEY_HL, false);
+        if (a.isEmpty() && !strong && amoled()) return getResources().getDrawable(R.drawable.selector);
+        int c = strong ? 0xFFFFD400 : a.isEmpty() ? 0xFF30C0FF : RemoteConfig.color(a, 0xFF30C0FF);
         float dp = getResources().getDisplayMetrics().density;
+        if (strong) {
+            android.graphics.drawable.GradientDrawable on = new android.graphics.drawable.GradientDrawable();
+            on.setColor(0x33FFD400);
+            on.setCornerRadius(12 * dp);
+            on.setStroke((int) (4 * dp), c);
+            android.graphics.drawable.StateListDrawable s = new android.graphics.drawable.StateListDrawable();
+            s.addState(new int[]{android.R.attr.state_pressed}, on);
+            s.addState(new int[]{android.R.attr.state_selected}, on);
+            s.addState(new int[]{android.R.attr.state_focused}, on);
+            s.addState(new int[]{}, new android.graphics.drawable.ColorDrawable(0));
+            return s;
+        }
         android.graphics.drawable.GradientDrawable on = new android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
                 new int[]{(c & 0x00FFFFFF) | 0x55000000, (c & 0x00FFFFFF) | 0x22000000});
@@ -401,15 +482,32 @@ public class MainActivity extends Activity {
             rows.addAll(rest);
         }
 
-        // Opções
-        rows.add(new Row(T_SECTION, "", getString(R.string.sec_opts), false));
-        rows.add(new Row(T_ACTION, A_NET, getString(R.string.net_row), false));
-        rows.add(new Row(T_ACTION, A_SETTINGS, getString(R.string.settings), false));
-        rows.add(new Row(T_ACTION, A_HOME,
-                getString(isDefaultHome() ? R.string.home_yes : R.string.home_no), false));
-        boolean guard = HomeGuard.enabled(this);
-        rows.add(new Row(T_ACTION, A_GUARD, getString(!guard ? R.string.guard_off
-                : RemoteHub.mouse == null ? R.string.guard_need_mouse : R.string.guard_on), false));
+        // ---- Acessibilidade
+        rows.add(new Row(T_SECTION, "", getString(R.string.sec_access), false));
+        int ts = Math.max(0, Math.min(2, prefs.getInt(KEY_TEXT, 0)));
+        rows.add(new Row(T_ACTION, A_TEXT, getString(R.string.text_row,
+                getString(ts == 0 ? R.string.text_1 : ts == 1 ? R.string.text_2 : R.string.text_3)), false));
+        rows.add(new Row(T_ACTION, A_HL, getString(prefs.getBoolean(KEY_HL, false) ? R.string.hl_on : R.string.hl_off), false));
+        rows.add(new Row(T_ACTION, A_TTS, getString(prefs.getBoolean(KEY_TTS, false) ? R.string.tts_on : R.string.tts_off), false));
+        rows.add(new Row(T_ACTION, A_TV_ACCESS, getString(R.string.tv_access), false));
+
+        // ---- Aparência
+        rows.add(new Row(T_SECTION, "", getString(R.string.sec_look), false));
+        rows.add(new Row(T_ACTION, A_THEME, getString(amoled() ? R.string.theme_amoled : R.string.theme_ps2), false));
+        rows.add(new Row(T_ACTION, A_STARS,
+                getString(prefs.getBoolean(KEY_STARS, !amoled()) ? R.string.stars_on : R.string.stars_off), false));
+        rows.add(new Row(T_ACTION, A_ICONS, getString(showIcons ? R.string.icons_on : R.string.icons_off), false));
+        if (!order.isEmpty()) {
+            rows.add(new Row(T_ACTION, A_ALPHA, getString(R.string.alpha), false));
+        }
+        if (hiddenCount > 0) {
+            rows.add(new Row(T_ACTION, A_HIDDEN, showHidden
+                    ? getString(R.string.hide_hidden)
+                    : getString(R.string.show_hidden, hiddenCount), false));
+        }
+
+        // ---- Celular como controle
+        rows.add(new Row(T_SECTION, "", getString(R.string.sec_phone), false));
         boolean musicOn = prefs.getBoolean(KEY_MUSIC, true);
         String ip = LeveMusicService.localIp();
         rows.add(new Row(T_ACTION, A_MUSIC, !musicOn ? getString(R.string.lm_off)
@@ -421,16 +519,16 @@ public class MainActivity extends Activity {
         int ime = imeState();
         rows.add(new Row(T_ACTION, A_IME, getString(ime == 3 ? R.string.ime_tv_on
                 : ime == 2 ? R.string.ime_on : ime == 1 ? R.string.ime_enabled : R.string.ime_off), false));
-        rows.add(new Row(T_ACTION, A_STARS,
-                getString(prefs.getBoolean(KEY_STARS, true) ? R.string.stars_on : R.string.stars_off), false));
-        if (!order.isEmpty()) {
-            rows.add(new Row(T_ACTION, A_ALPHA, getString(R.string.alpha), false));
-        }
-        if (hiddenCount > 0) {
-            rows.add(new Row(T_ACTION, A_HIDDEN, showHidden
-                    ? getString(R.string.hide_hidden)
-                    : getString(R.string.show_hidden, hiddenCount), false));
-        }
+
+        // ---- Sistema
+        rows.add(new Row(T_SECTION, "", getString(R.string.sec_opts), false));
+        rows.add(new Row(T_ACTION, A_NET, getString(R.string.net_row), false));
+        rows.add(new Row(T_ACTION, A_HOME,
+                getString(isDefaultHome() ? R.string.home_yes : R.string.home_no), false));
+        boolean guard = HomeGuard.enabled(this);
+        rows.add(new Row(T_ACTION, A_GUARD, getString(!guard ? R.string.guard_off
+                : RemoteHub.mouse == null ? R.string.guard_need_mouse : R.string.guard_on), false));
+        rows.add(new Row(T_ACTION, A_SETTINGS, getString(R.string.settings), false));
         rows.add(new Row(T_ACTION, A_UPDATE,
                 getString(R.string.update_row, "1.0." + Updater.installedVersion(this)), false));
 
@@ -531,8 +629,44 @@ public class MainActivity extends Activity {
             case A_HOME:
                 chooseHome();
                 break;
+            case A_TEXT:
+                int ts = (prefs.getInt(KEY_TEXT, 0) + 1) % 3;
+                prefs.edit().putInt(KEY_TEXT, ts).apply();
+                textScale = TEXT_SCALES[ts];
+                reload(A_TEXT);
+                break;
+            case A_HL:
+                prefs.edit().putBoolean(KEY_HL, !prefs.getBoolean(KEY_HL, false)).apply();
+                list.setSelector(selectorDrawable());
+                reload(A_HL);
+                break;
+            case A_TTS:
+                boolean sp = !prefs.getBoolean(KEY_TTS, false);
+                prefs.edit().putBoolean(KEY_TTS, sp).apply();
+                setupTts(sp);
+                if (sp) Toast.makeText(this, R.string.tts_ready, Toast.LENGTH_SHORT).show();
+                reload(A_TTS);
+                break;
+            case A_TV_ACCESS:
+                HomeGuard.pause();
+                Shortcuts.open(this, Shortcuts.ACCESSIBILITY);
+                break;
+            case A_ICONS:
+                showIcons = !showIcons;
+                prefs.edit().putBoolean(KEY_ICONS, showIcons).apply();
+                reload(A_ICONS);
+                break;
+            case A_THEME:
+                boolean toPs2 = amoled();
+                prefs.edit().putString(KEY_THEME, toPs2 ? "ps2" : "amoled").remove(KEY_STARS).apply();
+                stars.setAmoled(!toPs2);
+                stars.setAnimate(prefs.getBoolean(KEY_STARS, toPs2));
+                stars.setRunning(true);
+                list.setSelector(selectorDrawable());
+                reload(A_THEME);
+                break;
             case A_STARS:
-                boolean on = !prefs.getBoolean(KEY_STARS, true);
+                boolean on = !prefs.getBoolean(KEY_STARS, !amoled());
                 prefs.edit().putBoolean(KEY_STARS, on).putBoolean("stars_user_set", true).apply();
                 stars.setAnimate(on);
                 stars.setRunning(true);
@@ -924,6 +1058,17 @@ public class MainActivity extends Activity {
             }
             TextView label = v.findViewById(R.id.label);
             ImageView icon = v.findViewById(R.id.icon);
+            boolean big = r.type == T_BIG || r.type == T_BIG_ACTION;
+            label.setTextSize((r.type == T_SECTION ? 15f : big ? 34f : 22f) * textScale);
+            if (icon != null) {
+                int px = (int) ((big ? 64 : 34) * textScale * getResources().getDisplayMetrics().density);
+                ViewGroup.LayoutParams lp = icon.getLayoutParams();
+                if (lp.width != px) {
+                    lp.width = px;
+                    lp.height = px;
+                    icon.setLayoutParams(lp);
+                }
+            }
 
             if (A_NOW.equals(r.id)) {
                 label.setText(r.label);
@@ -932,7 +1077,11 @@ public class MainActivity extends Activity {
             } else {
                 label.setText(r.label);
             }
-            if (icon != null) {
+            if (icon != null && !showIcons && r.type != T_BIG_ACTION) {
+                icon.setTag(null);
+                icon.setImageDrawable(null);
+                icon.setVisibility(View.GONE);
+            } else if (icon != null) {
                 if (r.isApp()) {
                     icon.setVisibility(View.VISIBLE);
                     icons.into(r.id, icon);
@@ -946,7 +1095,8 @@ public class MainActivity extends Activity {
                     icon.setVisibility(View.INVISIBLE); // mantém o alinhamento do texto
                 }
             }
-            float alpha = r.hidden ? 0.45f : (r.type == T_ACTION ? 0.75f : 1f);
+            float alpha = r.hidden ? 0.5f : 1f;
+            if (r.type == T_ACTION) label.setTextColor(0xFFDADADA);
             v.setAlpha(alpha);
             return v;
         }

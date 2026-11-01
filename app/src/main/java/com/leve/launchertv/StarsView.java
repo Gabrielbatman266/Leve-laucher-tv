@@ -63,6 +63,14 @@ public class StarsView extends View {
         }
     }
 
+    private boolean amoled = true;
+
+    /** AMOLED: fundo preto puro; sem estrelas ligadas, não desenha mais nada (pixel apagado). */
+    public void setAmoled(boolean on) {
+        amoled = on;
+        invalidate();
+    }
+
     private int[] skyColors = {0xFF01020A, 0xFF040B2A, 0xFF0A1A4A};
 
     /** Troca as cores do céu (configuração ao vivo). */
@@ -85,8 +93,13 @@ public class StarsView extends View {
     @Override
     protected void onDraw(Canvas c) {
         int w = getWidth(), h = getHeight();
-        c.drawRect(0, 0, w, h, sky);
-        c.drawRect(0, 0, w, h, mist);
+        if (amoled) {
+            c.drawColor(0xFF000000);
+            if (!animate) return;
+        } else {
+            c.drawRect(0, 0, w, h, sky);
+            c.drawRect(0, 0, w, h, mist);
+        }
 
         float t = animate ? (System.currentTimeMillis() - start) / 1000f : 0f;
         for (int i = 0; i < STARS; i++) {

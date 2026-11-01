@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#01020A</color>
-    <color name="text">#EAF1FF</color>
-    <color name="dim">#7F93C9</color>
-    <color name="glow">#AA4D7DFF</color>
-    <color name="section">#5E78C2</color>
-    <!-- seleção: azul do menu do PS2 -->
-    <color name="sel_top">#5530C0FF</color>
-    <color name="sel_bottom">#33215BFF</color>
-    <color name="sel_line">#AA8FC8FF</color>
+    <!-- AMOLED: preto puro (pixel apagado), texto branco, cinzas claros para ler fácil -->
+    <color name="bg">#000000</color>
+    <color name="text">#FFFFFF</color>
+    <color name="dim">#B8B8B8</color>
+    <color name="glow">#00000000</color>
+    <color name="section">#9A9A9A</color>
+    <!-- seleção: faixa clara com borda branca bem visível -->
+    <color name="sel_top">#3DFFFFFF</color>
+    <color name="sel_bottom">#1AFFFFFF</color>
+    <color name="sel_line">#FFFFFFFF</color>
     <!-- modo mover: dourado -->
     <color name="move_top">#66FFC94D</color>
     <color name="move_bottom">#33FF9A1F</color>
